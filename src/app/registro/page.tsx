@@ -14,11 +14,7 @@ import {
   Link as MuiLink,
   IconButton,
   InputAdornment,
-  Divider,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem
+  Divider
 } from '@mui/material';
 import Image from 'next/image';
 import Link from 'next/link';
