@@ -27,12 +27,24 @@ async function main() {
     // USUARIOS
     // ============================================
     console.log('👥 Creating users...');
-    const hashedPassword = await bcrypt.hash('password123', 10);
+    
+    // Contraseñas para diferentes usuarios
+    const adminPassword = 'Admin2026!';
+    const doctorPassword = 'Doctor2026!';
+    const patientPassword = 'Patient2026!';
+    const testPassword1 = 'Usuario1Test!';
+    const testPassword2 = 'Usuario2Test!';
+    
+    const hashedAdminPassword = await bcrypt.hash(adminPassword, 10);
+    const hashedDoctorPassword = await bcrypt.hash(doctorPassword, 10);
+    const hashedPatientPassword = await bcrypt.hash(patientPassword, 10);
+    const hashedTestPassword1 = await bcrypt.hash(testPassword1, 10);
+    const hashedTestPassword2 = await bcrypt.hash(testPassword2, 10);
 
     const adminUser = await prisma.user.create({
       data: {
         email: 'admin@mariavita.com',
-        passwordHash: hashedPassword,
+        passwordHash: hashedAdminPassword,
         role: 'ADMIN',
         firstName: 'Admin',
         lastName: 'Sistema',
@@ -44,7 +56,7 @@ async function main() {
     const doctorUser = await prisma.user.create({
       data: {
         email: 'doctor@mariavita.com',
-        passwordHash: hashedPassword,
+        passwordHash: hashedDoctorPassword,
         role: 'SPECIALIST',
         firstName: 'Dr. Juan',
         lastName: 'Pérez',
@@ -56,7 +68,7 @@ async function main() {
     const patientUser1 = await prisma.user.create({
       data: {
         email: 'paciente1@example.com',
-        passwordHash: hashedPassword,
+        passwordHash: hashedPatientPassword,
         role: 'PATIENT',
         firstName: 'María',
         lastName: 'García',
@@ -68,11 +80,36 @@ async function main() {
     const patientUser2 = await prisma.user.create({
       data: {
         email: 'paciente2@example.com',
-        passwordHash: hashedPassword,
+        passwordHash: hashedPatientPassword,
         role: 'PATIENT',
         firstName: 'Carlos',
         lastName: 'López',
         phone: '5551234570',
+        isActive: true,
+      },
+    });
+    
+    // Usuarios de prueba adicionales
+    const testUser1 = await prisma.user.create({
+      data: {
+        email: 'prueba1@mariavita.com',
+        passwordHash: hashedTestPassword1,
+        role: 'PATIENT',
+        firstName: 'Usuario',
+        lastName: 'Prueba Uno',
+        phone: '5559871234',
+        isActive: true,
+      },
+    });
+    
+    const testUser2 = await prisma.user.create({
+      data: {
+        email: 'prueba2@mariavita.com',
+        passwordHash: hashedTestPassword2,
+        role: 'PATIENT',
+        firstName: 'Usuario',
+        lastName: 'Prueba Dos',
+        phone: '5559875678',
         isActive: true,
       },
     });
@@ -81,7 +118,9 @@ async function main() {
     console.log(`   - Admin: ${adminUser.email}`);
     console.log(`   - Doctor: ${doctorUser.email}`);
     console.log(`   - Patient 1: ${patientUser1.email}`);
-    console.log(`   - Patient 2: ${patientUser2.email}\n`);
+    console.log(`   - Patient 2: ${patientUser2.email}`);
+    console.log(`   - Test User 1: ${testUser1.email}`);
+    console.log(`   - Test User 2: ${testUser2.email}\n`);
 
     // ============================================
     // ESPECIALISTAS
@@ -106,7 +145,7 @@ async function main() {
     const user2 = await prisma.user.create({
       data: {
         email: 'radiologo@mariavita.com',
-        passwordHash: hashedPassword,
+        passwordHash: hashedDoctorPassword,
         role: 'SPECIALIST',
         firstName: 'Dra. Ana',
         lastName: 'Martínez',
@@ -132,7 +171,7 @@ async function main() {
     const user3 = await prisma.user.create({
       data: {
         email: 'general@mariavita.com',
-        passwordHash: hashedPassword,
+        passwordHash: hashedDoctorPassword,
         role: 'SPECIALIST',
         firstName: 'Dr. Pedro',
         lastName: 'González',
@@ -158,7 +197,7 @@ async function main() {
     const user4 = await prisma.user.create({
       data: {
         email: 'neurologo@mariavita.com',
-        passwordHash: hashedPassword,
+        passwordHash: hashedDoctorPassword,
         role: 'SPECIALIST',
         firstName: 'Dr. Miguel',
         lastName: 'Rodríguez',
@@ -232,14 +271,34 @@ async function main() {
     console.log('✅ Database seeding completed successfully!');
     console.log('═══════════════════════════════════════');
     console.log('\n📊 Summary:');
-    console.log(`   - Users: 7`);
+    console.log(`   - Users: 9`);
     console.log(`   - Specialists: 4`);
     console.log(`   - Appointments: ${appointments.length}`);
     console.log('\n🔑 Test credentials:');
-    console.log('   - Email: admin@mariavita.com');
-    console.log('   - Email: doctor@mariavita.com');
-    console.log('   - Email: paciente1@example.com');
-    console.log('   - Password: password123 (for all users)');
+    console.log('   ┌────────────────────────────────────────┐');
+    console.log('   │ ADMINISTRADOR                          │');
+    console.log('   ├────────────────────────────────────────┤');
+    console.log('   │ Email: admin@mariavita.com             │');
+    console.log('   │ Password: Admin2026!                   │');
+    console.log('   ├────────────────────────────────────────┤');
+    console.log('   │ ESPECIALISTAS                          │');
+    console.log('   ├────────────────────────────────────────┤');
+    console.log('   │ Email: doctor@mariavita.com            │');
+    console.log('   │ Password: Doctor2026!                  │');
+    console.log('   ├────────────────────────────────────────┤');
+    console.log('   │ PACIENTES                              │');
+    console.log('   ├────────────────────────────────────────┤');
+    console.log('   │ Email: paciente1@example.com           │');
+    console.log('   │ Password: Patient2026!                 │');
+    console.log('   ├────────────────────────────────────────┤');
+    console.log('   │ USUARIOS DE PRUEBA                     │');
+    console.log('   ├────────────────────────────────────────┤');
+    console.log('   │ Email: prueba1@mariavita.com           │');
+    console.log('   │ Password: Usuario1Test!                │');
+    console.log('   ├────────────────────────────────────────┤');
+    console.log('   │ Email: prueba2@mariavita.com           │');
+    console.log('   │ Password: Usuario2Test!                │');
+    console.log('   └────────────────────────────────────────┘');
     console.log('\n');
   } catch (error) {
     console.error('❌ Error during seeding:', error);

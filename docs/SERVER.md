@@ -20,3 +20,28 @@ NEXT_PUBLIC_API_URL="https://maria-vita.mx/api"
 NODE_ENV="production"
 PORT=3000
 BACKEND_PORT=4000
+┌────────────────────────────────────────┐
+│ USUARIOS DE PRUEBA                     │
+├────────────────────────────────────────┤
+│ Email: prueba1@mariavita.com           │
+│ Password: Usuario1Test!                │
+├────────────────────────────────────────┤
+│ Email: prueba2@mariavita.com           │
+│ Password: Usuario2Test!                │
+└────────────────────────────────────────┘
+
+┌────────────────────────────────────────┐
+│ OTROS USUARIOS DEL SISTEMA             │
+├────────────────────────────────────────┤
+│ ADMIN                                  │
+│ Email: admin@mariavita.com             │
+│ Password: Admin2026!                   │
+├────────────────────────────────────────┤
+│ ESPECIALISTA                           │
+│ Email: doctor@mariavita.com            │
+│ Password: Doctor2026!                  │
+├────────────────────────────────────────┤
+│ PACIENTE                               │
+│ Email: paciente1@example.com           │
+│ Password: Patient2026!                 │
+└────────────────────────────────────────┘

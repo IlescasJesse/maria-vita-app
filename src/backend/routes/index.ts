@@ -8,6 +8,7 @@ import { Router } from 'express';
 import authRoutes from './authRoutes';
 import specialistRoutes from './specialistRoutes';
 import studyRequestRoutes from './studyRequestRoutes';
+import contactRoutes from './contactRoutes';
 
 const router = Router();
 
@@ -28,7 +29,8 @@ router.get('/', (_req, res) => {
       appointments: '/api/appointments',
       studyRequests: '/api/study-requests',
       studyCatalog: '/api/study-catalog',
-      users: '/api/users'
+      users: '/api/users',
+      contact: '/api/contact'
     },
     documentation: 'https://docs.mariavita.com'
   });
@@ -46,7 +48,10 @@ router.use('/specialists', specialistRoutes);
 
 // Módulo de Solicitudes de Estudios
 router.use('/study-requests', studyRequestRoutes);
+Contacto
+router.use('/contact', contactRoutes);
 
+// Módulo de 
 // Módulo de Agenda (placeholder para futura implementación)
 // router.use('/appointments', appointmentRoutes);
 

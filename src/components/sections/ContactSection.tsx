@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import {
   Box,
   Container,
@@ -10,7 +11,8 @@ import {
   TextField,
   Button,
   Stack,
-  alpha
+  alpha,
+  Alert
 } from '@mui/material';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import PhoneIcon from '@mui/icons-material/Phone';
@@ -32,7 +34,7 @@ const contactInfo = [
   {
     icon: EmailIcon,
     title: 'Email',
-    content: 'contacto@clinicamedica.com'
+    content: 'contacto@maria-vita.mx'
   },
   {
     icon: AccessTimeIcon,
@@ -42,6 +44,63 @@ const contactInfo = [
 ];
 
 export default function ContactSection() {
+  const [formData, setFormData] = useState({
+    name: '',
+    phone: '',
+    email: '',
+    subject: '',
+    message: ''
+  });
+  const [isLoading, setIsLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+    setError(null);
+    setSuccess(false);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+    setSuccess(false);
+
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+      
+      const response = await fetch(`${apiUrl}/contact/send`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error?.message || 'Error al enviar el mensaje');
+      }
+
+      setSuccess(true);
+      setFormData({
+        name: '',
+        phone: '',
+        email: '',
+        subject: '',
+        message: ''
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al enviar el mensaje');
+    } finally {
+      setIsLoading(false);
+    }
+  };
   return (
     <Box
       id="contacto"
@@ -182,64 +241,93 @@ export default function ContactSection() {
                 >
                   Envíanos un Mensaje
                 </Typography>
-                <Stack spacing={3}>
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} sm={6}>
-                      <TextField
-                        fullWidth
-                        label="Nombre completo"
-                        variant="outlined"
-                        required
-                      />
+                {success && (
+                  <Alert severity="success" sx={{ mb: 3 }}>
+                    ¡Mensaje enviado exitosamente! Nos pondremos en contacto contigo pronto.
+                  </Alert>
+                )}
+                {error && (
+                  <Alert severity="error" sx={{ mb: 3 }}>
+                    {error}
+                  </Alert>
+                )}
+                <form onSubmit={handleSubmit}>
+                  <Stack spacing={3}>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="Nombre completo"
+                          name="name"
+                          value={formData.name}
+                          onChange={handleChange}
+                          variant="outlined"
+                          required
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="Teléfono"
+                          name="phone"
+                          value={formData.phone}
+                          onChange={handleChange}
+                          variant="outlined"
+                          required
+                        />
+                      </Grid>
                     </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <TextField
-                        fullWidth
-                        label="Teléfono"
-                        variant="outlined"
-                        required
-                      />
-                    </Grid>
-                  </Grid>
-                  <TextField
-                    fullWidth
-                    label="Email"
-                    type="email"
-                    variant="outlined"
-                    required
-                  />
-                  <TextField
-                    fullWidth
-                    label="Asunto"
-                    variant="outlined"
-                    required
-                  />
-                  <TextField
-                    fullWidth
-                    label="Mensaje"
-                    multiline
-                    rows={6}
-                    variant="outlined"
-                    required
-                  />
-                  <Button
-                    variant="contained"
-                    size="large"
-                    endIcon={<SendIcon />}
-                    sx={{
-                      bgcolor: 'primary.main',
-                      color: 'white',
-                      py: 1.5,
-                      fontSize: '1rem',
-                      fontWeight: 600,
-                      '&:hover': {
-                        bgcolor: 'primary.dark'
-                      }
-                    }}
-                  >
-                    Enviar Mensaje
-                  </Button>
-                </Stack>
+                    <TextField
+                      fullWidth
+                      label="Email"
+                      name="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={handleChange}
+                      variant="outlined"
+                      required
+                    />
+                    <TextField
+                      fullWidth
+                      label="Asunto"
+                      name="subject"
+                      value={formData.subject}
+                      onChange={handleChange}
+                      variant="outlined"
+                      required
+                    />
+                    <TextField
+                      fullWidth
+                      label="Mensaje"
+                      name="message"
+                      value={formData.message}
+                      onChange={handleChange}
+                      multiline
+                      rows={6}
+                      variant="outlined"
+                      required
+                    />
+                    <Button
+                      type="submit"
+                      variant="contained"
+                      size="large"
+                      endIcon={<SendIcon />}
+                      disabled={isLoading}
+                      sx={{
+                        bgcolor: 'primary.main',
+                        color: 'white',
+                        py: 1.5,
+                        fontSize: '1rem',
+                        fontWeight: 600,
+                        '&:hover': {
+                          bgcolor: 'primary.dark'
+                        }
+                      }}
+                    >
+                      {isLoading ? 'Enviando...' : 'Enviar Mensaje'}
+                    </Button>
+                  </Stack>
+                </form>
               </CardContent>
             </Card>
           </Grid>

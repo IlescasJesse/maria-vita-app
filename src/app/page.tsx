@@ -7,7 +7,7 @@ import ScrollIndicators from '@/components/ScrollIndicators';
 import HeroSection from '@/components/sections/HeroSection';
 import AboutSection from '@/components/sections/AboutSection';
 import DepartmentsSection from '@/components/sections/DepartmentsSection';
-import InsuranceSection from '@/components/sections/InsuranceSection';
+import ClinicalLabSection from '@/components/sections/ClinicalLabSection';
 import ContactSection from '@/components/sections/ContactSection';
 
 export default function Home() {
@@ -18,7 +18,7 @@ export default function Home() {
       <HeroSection />
       <AboutSection />
       <DepartmentsSection />
-      <InsuranceSection />
+      <ClinicalLabSection />
       <ContactSection />
       <Footer />
     </Box>

@@ -7,14 +7,11 @@ import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import { smoothScrollTo } from '@/lib/smoothScroll';
 
 const bounce = keyframes`
-  0%, 20%, 50%, 80%, 100% {
+  0%, 100% {
     transform: translateY(0);
   }
-  40% {
-    transform: translateY(-10px);
-  }
-  60% {
-    transform: translateY(-5px);
+  50% {
+    transform: translateY(-8px);
   }
 `;
 
@@ -84,10 +81,10 @@ export default function HeroSection() {
                 borderRadius: 2,
                 fontSize: '1rem',
                 fontWeight: 600,
-                
+                transition: 'all 0.25s ease',
                 '&:hover': {
                   bgcolor: 'primary.dark',
-                  boxShadow: '0 6px 20px rgba(0,135,95,0.6)'
+                  transform: 'translateY(-2px)'
                 }
               }}
             >
@@ -133,7 +130,7 @@ export default function HeroSection() {
           onClick={() => smoothScrollTo('acerca', 1200)}
           sx={{
             color: 'white',
-            animation: `${bounce} 2s infinite`,
+            animation: `${bounce} 1.2s ease-in-out infinite`,
             '&:hover': {
               bgcolor: alpha('#FFFFFF', 0.1)
             }
