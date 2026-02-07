@@ -344,7 +344,7 @@ export const updateStudyRequestStatus = async (
     };
 
     const allowedStatuses = validTransitions[existingRequest.status];
-    if (!allowedStatuses.includes(status)) {
+    if (!allowedStatuses || !allowedStatuses.includes(status)) {
       res.status(400).json({
         success: false,
         error: {
