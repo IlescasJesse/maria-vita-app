@@ -48,10 +48,10 @@ router.use('/specialists', specialistRoutes);
 
 // Módulo de Solicitudes de Estudios
 router.use('/study-requests', studyRequestRoutes);
-Contacto
+
+// Módulo de Contacto
 router.use('/contact', contactRoutes);
 
-// Módulo de 
 // Módulo de Agenda (placeholder para futura implementación)
 // router.use('/appointments', appointmentRoutes);
 

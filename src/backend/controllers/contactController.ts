@@ -94,7 +94,7 @@ ${message}
       `
     };
     await sendEmail(emailData);
-    */"
+    */
 
     res.status(200).json({
       success: true,
