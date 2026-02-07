@@ -64,7 +64,8 @@ export const sendContactMessage = async (
     console.log(`Mensaje: ${message}`);
     console.log('---');
 
-    // Simular envío de email a contacto@maria-vita.mx
+    // Ejemplo de estructura para envío de email (implementar con nodemailer/sendgrid)
+    /*
     const emailData = {
       to: 'contacto@maria-vita.mx',
       from: email,
@@ -92,9 +93,8 @@ Mensaje:
 ${message}
       `
     };
-
-    // Aquí implementarías el envío real
-    // await sendEmail(emailData);
+    await sendEmail(emailData);
+    */"
 
     res.status(200).json({
       success: true,
