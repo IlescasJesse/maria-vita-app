@@ -87,7 +87,10 @@ export default function Header() {
           </ListItem>
         ))}
         <ListItem disablePadding>
-          <ListItemButton sx={{ textAlign: 'center', justifyContent: 'center' }} href="/login">
+          <ListItemButton 
+            sx={{ textAlign: 'center', justifyContent: 'center' }} 
+            href="/login"
+          >
             <LoginIcon sx={{ mr: 1, fontSize: 18 }} />
             <ListItemText primary="Entrar" sx={{ '& .MuiTypography-root': { fontSize: '0.75rem' } }} /> 
           </ListItemButton>
@@ -199,6 +202,7 @@ export default function Header() {
                 <Button
                   variant="outlined"
                   startIcon={<LoginIcon />}
+                  href="/login"
                   sx={{
                     ml: 2,
                     borderColor: 'primary.main',

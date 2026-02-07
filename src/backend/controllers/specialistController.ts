@@ -365,7 +365,7 @@ export const deleteSpecialist = async (
     }
 
     // En lugar de eliminar, marcar como no disponible (soft delete)
-    const updatedSpecialist = await prisma.specialist.update({
+    await prisma.specialist.update({
       where: { id },
       data: { isAvailable: false }
     });

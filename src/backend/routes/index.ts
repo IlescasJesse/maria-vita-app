@@ -5,6 +5,7 @@
  */
 
 import { Router } from 'express';
+import authRoutes from './authRoutes';
 import specialistRoutes from './specialistRoutes';
 import studyRequestRoutes from './studyRequestRoutes';
 
@@ -22,12 +23,12 @@ router.get('/', (req, res) => {
     message: 'API de Maria Vita',
     version: '1.0.0',
     endpoints: {
+      auth: '/api/auth',
       specialists: '/api/specialists',
       appointments: '/api/appointments',
       studyRequests: '/api/study-requests',
       studyCatalog: '/api/study-catalog',
-      users: '/api/users',
-      auth: '/api/auth'
+      users: '/api/users'
     },
     documentation: 'https://docs.mariavita.com'
   });
@@ -36,6 +37,9 @@ router.get('/', (req, res) => {
 // ============================================
 // MONTAR RUTAS DE MÓDULOS
 // ============================================
+
+// Módulo de Autenticación
+router.use('/auth', authRoutes);
 
 // Módulo de Especialistas
 router.use('/specialists', specialistRoutes);
