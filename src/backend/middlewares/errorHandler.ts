@@ -24,7 +24,7 @@ export const errorHandler = (
   err: CustomError,
   req: Request,
   res: Response,
-  next: NextFunction
+  _next: NextFunction
 ): void => {
   // Log del error en consola (en producción esto iría a un servicio de logging)
   console.error('❌ Error capturado:', {

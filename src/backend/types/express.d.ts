@@ -10,7 +10,7 @@ declare global {
         id: string;
         email: string;
         name?: string;
-        role?: string;
+        role: string; // role es requerido cuando user existe
       };
     }
   }

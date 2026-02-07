@@ -221,8 +221,8 @@ export const createAvailabilitySchema = z.object({
 }).refine(
   (data) => {
     // Validar que hora fin sea mayor a hora inicio
-    const [startHour, startMin] = data.startTime.split(':').map(Number);
-    const [endHour, endMin] = data.endTime.split(':').map(Number);
+    const [startHour = 0, startMin = 0] = data.startTime.split(':').map(Number);
+    const [endHour = 0, endMin = 0] = data.endTime.split(':').map(Number);
     const startMinutes = startHour * 60 + startMin;
     const endMinutes = endHour * 60 + endMin;
     return endMinutes > startMinutes;

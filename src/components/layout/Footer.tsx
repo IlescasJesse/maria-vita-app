@@ -11,7 +11,6 @@ import {
   Divider,
   alpha
 } from '@mui/material';
-import FavoriteIcon from '@mui/icons-material/Favorite';
 import FacebookIcon from '@mui/icons-material/Facebook';
 import TwitterIcon from '@mui/icons-material/Twitter';
 import InstagramIcon from '@mui/icons-material/Instagram';

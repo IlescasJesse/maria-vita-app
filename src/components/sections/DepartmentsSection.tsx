@@ -8,7 +8,6 @@ import {
   Card,
   CardContent,
   Button,
-  Stack,
   alpha
 } from '@mui/material';
 import FavoriteIcon from '@mui/icons-material/Favorite';

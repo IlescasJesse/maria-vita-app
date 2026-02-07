@@ -18,7 +18,7 @@ const router = Router();
 /**
  * Endpoint de información general de la API
  */
-router.get('/', (req, res) => {
+router.get('/', (_req, res) => {
   res.json({
     message: 'API de Maria Vita',
     version: '1.0.0',

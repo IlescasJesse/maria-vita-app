@@ -10,7 +10,6 @@ import { prisma } from '../config/database';
 
 // Obtener el secret de las variables de entorno
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 
 /**
  * Interface para el payload del JWT
@@ -132,7 +131,9 @@ export const authorize = (...allowedRoles: string[]) => {
       return;
     }
 
-    if (!allowedRoles.includes(req.user.role)) {
+    // Type assertion después de verificar que req.user existe
+    const userRole = req.user.role as string;
+    if (!allowedRoles.includes(userRole)) {
       res.status(403).json({
         success: false,
         error: {
@@ -153,7 +154,7 @@ export const authorize = (...allowedRoles: string[]) => {
  */
 export const optionalAuth = async (
   req: Request,
-  res: Response,
+  _res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
@@ -202,7 +203,7 @@ export const generateToken = (userId: string, email: string, role: string): stri
   return jwt.sign(
     { userId, email, role },
     JWT_SECRET,
-    { expiresIn: JWT_EXPIRES_IN }
+    { expiresIn: '7d' } // Valor fijo para evitar problemas de tipo
   );
 };
 

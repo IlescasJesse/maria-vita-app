@@ -60,7 +60,7 @@ if (process.env.NODE_ENV === 'development') {
  * Endpoint de health check
  * Verifica que el servidor esté corriendo y las bases de datos conectadas
  */
-app.get('/health', async (req, res) => {
+app.get('/health', async (_req, res) => {
   try {
     const dbHealth = await checkDatabasesHealth();
     
@@ -85,7 +85,7 @@ app.get('/health', async (req, res) => {
 /**
  * Endpoint raíz
  */
-app.get('/', (req, res) => {
+app.get('/', (_req, res) => {
   res.json({
     message: 'API de Maria Vita - Sistema Médico Híbrido',
     version: '1.0.0',

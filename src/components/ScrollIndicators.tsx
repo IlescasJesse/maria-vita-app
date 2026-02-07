@@ -1,6 +1,6 @@
 'use client';
 
-import { Box, Button, Stack, useTheme, useMediaQuery } from '@mui/material';
+import { Box, Button, useTheme, useMediaQuery } from '@mui/material';
 import { useState, useEffect } from 'react';
 import { handleSmoothScroll } from '@/lib/smoothScroll';
 
