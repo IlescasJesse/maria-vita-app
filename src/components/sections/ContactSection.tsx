@@ -333,30 +333,28 @@ export default function ContactSection() {
           </Grid>
         </Grid>
 
-        {/* Map Placeholder */}
+        {/* Google Maps */}
         <Box
           sx={{
             mt: 6,
-            height: 400,
+            height: { xs: 300, md: 450 },
             borderRadius: 3,
             overflow: 'hidden',
             border: 1,
             borderColor: 'divider',
-            bgcolor: alpha('#353080', 0.05),
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
+            boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
           }}
         >
-          <Stack alignItems="center" spacing={2}>
-            <LocationOnIcon sx={{ fontSize: 64, color: 'primary.main' }} />
-            <Typography variant="h6" color="text.secondary">
-              Mapa de ubicación
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Calle Miguel Cabrera, 402, Colonia Centro, Oaxaca de Juárez, Oax. CP. 68000
-            </Typography>
-          </Stack>
+          <iframe
+            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3814.5742828456816!2d-96.72661492471076!3d17.064584483863774!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x85c722289d92a0b7%3A0x1234567890abcdef!2sCalle%20Miguel%20Cabrera%20402%2C%20Centro%2C%2068000%20Oaxaca%20de%20Ju%C3%A1rez%2C%20Oax.!5e0!3m2!1ses!2smx!4v1707331200000!5m2!1ses!2smx"
+            width="100%"
+            height="100%"
+            style={{ border: 0 }}
+            allowFullScreen
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+            title="Ubicación Maria Vita - Calle Miguel Cabrera 402, Centro, Oaxaca"
+          />
         </Box>
       </Container>
     </Box>
