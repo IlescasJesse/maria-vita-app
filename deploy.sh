@@ -14,6 +14,10 @@ echo ""
 echo "📁 Navegando al directorio del proyecto..."
 cd /var/www/maria-vita-app
 
+# 1.5 Stash de cambios locales (si los hay)
+echo "💾 Guardando cambios locales..."
+git stash || true
+
 # 2. Pull de los últimos cambios
 echo "⬇️  Descargando últimos cambios de GitHub..."
 git pull origin main
