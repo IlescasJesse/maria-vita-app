@@ -29,240 +29,113 @@ async function main() {
     console.log('👥 Creating users...');
     
     // Contraseñas para diferentes usuarios
-    const adminPassword = 'Admin2026!';
+    const superAdminPassword = 'Ajetreo1512!';
     const doctorPassword = 'Doctor2026!';
-    const patientPassword = 'Patient2026!';
-    const testPassword1 = 'Usuario1Test!';
-    const testPassword2 = 'Usuario2Test!';
     
-    const hashedAdminPassword = await bcrypt.hash(adminPassword, 10);
+    const hashedSuperAdminPassword = await bcrypt.hash(superAdminPassword, 10);
     const hashedDoctorPassword = await bcrypt.hash(doctorPassword, 10);
-    const hashedPatientPassword = await bcrypt.hash(patientPassword, 10);
-    const hashedTestPassword1 = await bcrypt.hash(testPassword1, 10);
-    const hashedTestPassword2 = await bcrypt.hash(testPassword2, 10);
 
-    const adminUser = await prisma.user.create({
+    // Super Administrador - Jesse
+    const superAdminUser = await prisma.user.create({
       data: {
-        email: 'admin@mariavita.com',
-        passwordHash: hashedAdminPassword,
-        role: 'ADMIN',
-        firstName: 'Admin',
-        lastName: 'Sistema',
-        phone: '5551234567',
+        email: 'JESSE@ADMIN',
+        passwordHash: hashedSuperAdminPassword,
+        role: 'SUPERADMIN',
+        suffix: 'Lic.',
+        firstName: 'JESSE',
+        lastName: 'ILESCAS MARTINEZ',
+        dateOfBirth: new Date('1995-01-15'),
+        phone: '5551234566',
         isActive: true,
-      },
-    });
-
-    const doctorUser = await prisma.user.create({
-      data: {
-        email: 'doctor@mariavita.com',
-        passwordHash: hashedDoctorPassword,
-        role: 'SPECIALIST',
-        firstName: 'Dr. Juan',
-        lastName: 'Pérez',
-        phone: '5551234568',
-        isActive: true,
-      },
-    });
-
-    const patientUser1 = await prisma.user.create({
-      data: {
-        email: 'paciente1@example.com',
-        passwordHash: hashedPatientPassword,
-        role: 'PATIENT',
-        firstName: 'María',
-        lastName: 'García',
-        phone: '5551234569',
-        isActive: true,
-      },
-    });
-
-    const patientUser2 = await prisma.user.create({
-      data: {
-        email: 'paciente2@example.com',
-        passwordHash: hashedPatientPassword,
-        role: 'PATIENT',
-        firstName: 'Carlos',
-        lastName: 'López',
-        phone: '5551234570',
-        isActive: true,
-      },
-    });
-    
-    // Usuarios de prueba adicionales
-    const testUser1 = await prisma.user.create({
-      data: {
-        email: 'prueba1@mariavita.com',
-        passwordHash: hashedTestPassword1,
-        role: 'PATIENT',
-        firstName: 'Usuario',
-        lastName: 'Prueba Uno',
-        phone: '5559871234',
-        isActive: true,
-      },
-    });
-    
-    const testUser2 = await prisma.user.create({
-      data: {
-        email: 'prueba2@mariavita.com',
-        passwordHash: hashedTestPassword2,
-        role: 'PATIENT',
-        firstName: 'Usuario',
-        lastName: 'Prueba Dos',
-        phone: '5559875678',
-        isActive: true,
+        isNew: false,
       },
     });
 
     console.log('✅ Users created');
-    console.log(`   - Admin: ${adminUser.email}`);
-    console.log(`   - Doctor: ${doctorUser.email}`);
-    console.log(`   - Patient 1: ${patientUser1.email}`);
-    console.log(`   - Patient 2: ${patientUser2.email}`);
-    console.log(`   - Test User 1: ${testUser1.email}`);
-    console.log(`   - Test User 2: ${testUser2.email}\n`);
+    console.log(`   - Super Admin: ${superAdminUser.email}\n`);
 
     // ============================================
-    // ESPECIALISTAS
+    // ESPECIALISTAS - MÉDICOS REALES MIER Y TERÁN
     // ============================================
     console.log('👨‍⚕️ Creating specialists...');
 
-    const specialist1 = await prisma.specialist.create({
-      data: {
-        userId: doctorUser.id,
-        fullName: 'Dr. Juan Pérez',
-        specialty: 'Cardiología',
-        licenseNumber: 'LIC-CARD-001',
-        assignedOffice: 'Consultorio 101',
-        consultationFee: 1500.0,
-        biography: 'Especialista en cardiología con 15 años de experiencia',
-        yearsOfExperience: 15,
-        isAvailable: true,
-      },
-    });
+    // Datos reales de médicos
+    const medicosData = [
+      { name: 'DR. JUVENTINO GONZALES', specialty: 'CIRUJANO UROLOGO CERTIFICADO', office: 'Consultorio 101' },
+      { name: 'DR. MIGUEL ANGEL ESPINOZA FRANKLIN', specialty: 'TRAUMATOLOGIA Y ORTOPEDIA', office: 'Consultorio 102' },
+      { name: 'DR. VERONICA OLVERA SUMANO', specialty: 'GENETISTA PATOLOGIA HEREDITARIA', office: 'Consultorio 103' },
+      { name: 'DR. ARILDA VELASQUEZ RUIZ', specialty: 'CLINICA DEL DOLOR Y TANATOLOGIA', office: 'Consultorio 104' },
+      { name: 'DR. LUIS BARRAZA', specialty: 'GERIATRA', office: 'Consultorio 105' },
+      { name: 'DR. JOSUE ANGELES', specialty: 'CARDIOLOGO INTERVENCIONISTA', office: 'Consultorio 106' },
+      { name: 'DR. ABIGAIL JUAREZ CRUZ', specialty: 'INFECTOLOGA INTERNISTA', office: 'Consultorio 107' },
+      { name: 'DR. ERCK ORLANDO VASQUEZ CRUZ', specialty: 'CIRUGIA GENERAL', office: 'Consultorio 108' },
+      { name: 'DR. JESUS OMAR MORALES RUIZ', specialty: 'INTENSIVISTA PEDIATRA', office: 'Consultorio 109' },
+      { name: 'DRA. SELENA SALAZAR', specialty: 'NEUMOLOGIA PARA ADULTOS', office: 'Consultorio 110' },
+      { name: 'DR. URIEL MARTINEZ CUEVAS', specialty: 'OTORRINOLARINGOLOGO', office: 'Consultorio 111' },
+      { name: 'DR. APOLONIO VASQUEZ', specialty: 'MEDICO GENERAL', office: 'Consultorio 112' },
+      { name: 'DR. DANIEL VENEGAS CORDOBA', specialty: 'MEDICO FAMILIAR', office: 'Consultorio 113' },
+      { name: 'DR. SERGIO LOPEZ BERNAL', specialty: 'MEDICO IMAGENOLOGO', office: 'Sala de Imagen' },
+      { name: 'DR. ABELARDO RAMIREZ DAVILA', specialty: 'NORMATIVIDAD Y COFEPRIS', office: 'Oficina Administrativa' },
+      { name: 'DRA. ANA', specialty: 'URGENCIOLOGA', office: 'Sala de Urgencias' },
+    ];
 
-    // Crear especialistas adicionales con usuarios asociados
-    const user2 = await prisma.user.create({
-      data: {
-        email: 'radiologo@mariavita.com',
-        passwordHash: hashedDoctorPassword,
-        role: 'SPECIALIST',
-        firstName: 'Dra. Ana',
-        lastName: 'Martínez',
-        phone: '5551234571',
-        isActive: true,
-      },
-    });
-
-    const specialist2 = await prisma.specialist.create({
-      data: {
-        userId: user2.id,
-        fullName: 'Dra. Ana Martínez',
-        specialty: 'Radiología',
-        licenseNumber: 'LIC-RAD-001',
-        assignedOffice: 'Sala de Imagen',
-        consultationFee: 2000.0,
-        biography: 'Radióloga certificada especializada en diagnóstico por imagen',
-        yearsOfExperience: 10,
-        isAvailable: true,
-      },
-    });
-
-    const user3 = await prisma.user.create({
-      data: {
-        email: 'general@mariavita.com',
-        passwordHash: hashedDoctorPassword,
-        role: 'SPECIALIST',
-        firstName: 'Dr. Pedro',
-        lastName: 'González',
-        phone: '5551234572',
-        isActive: true,
-      },
-    });
-
-    const specialist3 = await prisma.specialist.create({
-      data: {
-        userId: user3.id,
-        fullName: 'Dr. Pedro González',
-        specialty: 'Medicina General',
-        licenseNumber: 'LIC-GP-001',
-        assignedOffice: 'Consultorio 102',
-        consultationFee: 800.0,
-        biography: 'Médico general con amplia experiencia en consulta primaria',
-        yearsOfExperience: 8,
-        isAvailable: true,
-      },
-    });
-
-    const user4 = await prisma.user.create({
-      data: {
-        email: 'neurologo@mariavita.com',
-        passwordHash: hashedDoctorPassword,
-        role: 'SPECIALIST',
-        firstName: 'Dr. Miguel',
-        lastName: 'Rodríguez',
-        phone: '5551234573',
-        isActive: true,
-      },
-    });
-
-    await prisma.specialist.create({
-      data: {
-        userId: user4.id,
-        fullName: 'Dr. Miguel Rodríguez',
-        specialty: 'Neurología',
-        licenseNumber: 'LIC-NEU-001',
-        assignedOffice: 'Consultorio 103',
-        consultationFee: 1800.0,
-        biography: 'Neurólogo especializado en trastornos del sistema nervioso',
-        yearsOfExperience: 12,
-        isAvailable: false,
-      },
-    });
-
-    console.log(`✅ 4 specialists created\n`);
-
-    // ============================================
-    // CITAS
-    // ============================================
-    console.log('📅 Creating appointments...');
-
-    const appointments = await Promise.all([
-      prisma.appointment.create({
+    const specialists = [];
+    
+    for (let i = 0; i < medicosData.length; i++) {
+      const medico = medicosData[i]!; // TypeScript non-null assertion
+      const nameParts = medico.name.split(' ');
+      const suffix = nameParts[0]; // "DR." o "DRA."
+      const firstName = nameParts.slice(0, 2).join(' '); // "DR. NOMBRE"
+      const lastName = nameParts.slice(2).join(' ') || 'ESPECIALISTA';
+      
+      // Generar email único basado en el nombre
+      const emailName = medico.name
+        .toLowerCase()
+        .replace(/dr\.|dra\./g, '')
+        .trim()
+        .split(' ')
+        .join('.');
+      
+      // Generar fecha de nacimiento aleatoria entre 1960-1985
+      const birthYear = 1960 + Math.floor(i * 1.5);
+      const birthMonth = (i % 12) + 1;
+      const birthDay = ((i * 7) % 28) + 1;
+      
+      const specialistUser = await prisma.user.create({
         data: {
-          patientId: patientUser1.id,
-          specialistId: specialist1.id,
-          scheduledDate: new Date('2026-02-10T10:00:00'),
-          durationMinutes: 30,
-          status: 'CONFIRMED',
-          reason: 'Consulta de seguimiento cardiológico',
-          notes: 'Paciente con antecedentes de hipertensión',
+          email: `${emailName}@maria-vita.mx`,
+          passwordHash: hashedDoctorPassword,
+          role: 'SPECIALIST',
+          suffix: suffix,
+          firstName: firstName,
+          lastName: lastName,
+          dateOfBirth: new Date(birthYear, birthMonth - 1, birthDay),
+          phone: `555${(1234571 + i).toString()}`,
+          isActive: true,
+          isNew: true, // Debe completar perfil
         },
-      }),
-      prisma.appointment.create({
-        data: {
-          patientId: patientUser2.id,
-          specialistId: specialist3.id,
-          scheduledDate: new Date('2026-02-08T15:00:00'),
-          durationMinutes: 30,
-          status: 'PENDING',
-          reason: 'Consulta general',
-        },
-      }),
-      prisma.appointment.create({
-        data: {
-          patientId: patientUser1.id,
-          specialistId: specialist2.id,
-          scheduledDate: new Date('2026-02-05T09:00:00'),
-          durationMinutes: 60,
-          status: 'COMPLETED',
-          reason: 'Radiografía de tórax',
-          notes: 'Estudio completado sin anomalías',
-        },
-      }),
-    ]);
+      });
 
-    console.log(`✅ ${appointments.length} appointments created\n`);
+      const specialist = await prisma.specialist.create({
+        data: {
+          userId: specialistUser.id,
+          fullName: medico.name,
+          specialty: medico.specialty,
+          licenseNumber: `LIC-MV-${String(i + 1).padStart(3, '0')}`,
+          assignedOffice: medico.office,
+          consultationFee: medico.specialty.includes('GENERAL') || medico.specialty.includes('FAMILIAR') ? 800.0 : 
+                          medico.specialty.includes('CIRUGIA') || medico.specialty.includes('CARDIO') ? 2500.0 :
+                          medico.specialty.includes('IMAGEN') || medico.specialty.includes('RADIO') ? 2000.0 : 1500.0,
+          biography: `Especialista en ${medico.specialty}`,
+          yearsOfExperience: 5 + Math.floor(i * 1.2),
+          isAvailable: true,
+        },
+      });
+
+      specialists.push(specialist);
+    }
+
+    console.log(`✅ ${specialists.length} specialists created\n`);
 
     // ============================================
     // RESUMEN
@@ -271,34 +144,27 @@ async function main() {
     console.log('✅ Database seeding completed successfully!');
     console.log('═══════════════════════════════════════');
     console.log('\n📊 Summary:');
-    console.log(`   - Users: 9`);
-    console.log(`   - Specialists: 4`);
-    console.log(`   - Appointments: ${appointments.length}`);
+    console.log(`   - Total Users: ${1 + specialists.length} (1 SUPERADMIN + ${specialists.length} specialists)`);
+    console.log(`   - Specialists: ${specialists.length}`);
     console.log('\n🔑 Test credentials:');
     console.log('   ┌────────────────────────────────────────┐');
-    console.log('   │ ADMINISTRADOR                          │');
+    console.log('   │ SUPER ADMINISTRADOR                    │');
     console.log('   ├────────────────────────────────────────┤');
-    console.log('   │ Email: admin@mariavita.com             │');
-    console.log('   │ Password: Admin2026!                   │');
+    console.log('   │ Email: JESSE@ADMIN                     │');
+    console.log('   │ Password: Ajetreo1512!                 │');
     console.log('   ├────────────────────────────────────────┤');
     console.log('   │ ESPECIALISTAS                          │');
     console.log('   ├────────────────────────────────────────┤');
-    console.log('   │ Email: doctor@mariavita.com            │');
+    console.log('   │ 16 Médicos Mier y Terán                │');
+    console.log('   │ Todos comparten contraseña             │');
     console.log('   │ Password: Doctor2026!                  │');
-    console.log('   ├────────────────────────────────────────┤');
-    console.log('   │ PACIENTES                              │');
-    console.log('   ├────────────────────────────────────────┤');
-    console.log('   │ Email: paciente1@example.com           │');
-    console.log('   │ Password: Patient2026!                 │');
-    console.log('   ├────────────────────────────────────────┤');
-    console.log('   │ USUARIOS DE PRUEBA                     │');
-    console.log('   ├────────────────────────────────────────┤');
-    console.log('   │ Email: prueba1@mariavita.com           │');
-    console.log('   │ Password: Usuario1Test!                │');
-    console.log('   ├────────────────────────────────────────┤');
-    console.log('   │ Email: prueba2@mariavita.com           │');
-    console.log('   │ Password: Usuario2Test!                │');
+    console.log('   │ Deben completar perfil al iniciar      │');
     console.log('   └────────────────────────────────────────┘');
+    console.log('\n💊 16 Médicos Especialistas Mier y Terán creados');
+    console.log('   - Todos incluyen: Sufijo, Nombre, Apellidos, Fecha de Nacimiento');
+    console.log('   - Urología, Traumatología, Genética');
+    console.log('   - Cardiología, Neumología, Pediatría');
+    console.log('   - Medicina General, Imagenología, y más...\n');
     console.log('\n');
   } catch (error) {
     console.error('❌ Error during seeding:', error);

@@ -5,7 +5,14 @@ const nextConfig = {
 
   // Configuración de imágenes optimizadas
   images: {
-    domains: ['localhost'],
+    remotePatterns: [
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+        port: '5000',
+        pathname: '/**',
+      },
+    ],
     formats: ['image/avif', 'image/webp'],
   },
 
@@ -45,6 +52,16 @@ const nextConfig = {
       //   destination: '/inicio',
       //   permanent: false,
       // },
+    ];
+  },
+
+  // Rewrites para proxy del backend
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: 'http://localhost:5000/api/:path*',
+      },
     ];
   },
 };

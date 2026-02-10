@@ -20,7 +20,7 @@ git pull origin main
 
 # 3. Instalar/actualizar dependencias
 echo "📦 Instalando dependencias..."
-npm install --legacy-peer-deps
+npm install --production=false
 
 # 4. Regenerar cliente de Prisma
 echo "🔧 Regenerando cliente de Prisma..."

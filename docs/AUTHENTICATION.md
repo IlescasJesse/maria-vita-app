@@ -59,7 +59,7 @@ Registra un nuevo usuario en el sistema.
 - Contraseña mínimo 6 caracteres con al menos 1 número
 - Nombre y apellido entre 2-100 caracteres
 - Teléfono con formato válido (opcional)
-- Rol debe ser: ADMIN, SPECIALIST, PATIENT o RECEPTIONIST
+- Rol debe ser: SUPERADMIN, ADMIN, SPECIALIST, PATIENT o RECEPTIONIST
 
 ---
 

@@ -291,14 +291,14 @@ const components = {
           '&:hover': {
             '& .MuiOutlinedInput-notchedOutline': {
               borderColor: '#353080',
-              borderWidth: '1.5px'
+              borderWidth: '2px'
             }
           },
           '&.Mui-focused': {
             backgroundColor: '#FFFFFF',
             '& .MuiOutlinedInput-notchedOutline': {
               borderColor: '#353080',
-              borderWidth: '2px'
+              borderWidth: '2.5px'
             }
           }
         }
@@ -319,6 +319,7 @@ const components = {
       },
       notchedOutline: {
         borderColor: 'rgba(0,0,0,0.08)',
+        borderWidth: '1.5px',
         transition: 'all 0.2s ease-in-out'
       }
     }

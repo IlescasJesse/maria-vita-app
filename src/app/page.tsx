@@ -6,8 +6,8 @@ import Footer from '@/components/layout/Footer';
 import ScrollIndicators from '@/components/ScrollIndicators';
 import HeroSection from '@/components/sections/HeroSection';
 import AboutSection from '@/components/sections/AboutSection';
-import DepartmentsSection from '@/components/sections/DepartmentsSection';
-import ClinicalLabSection from '@/components/sections/ClinicalLabSection';
+import ServicesCardsSection from '@/components/sections/ServicesCardsSection';
+import InsuranceSection from '@/components/sections/InsuranceSection';
 import ContactSection from '@/components/sections/ContactSection';
 
 export default function Home() {
@@ -17,8 +17,8 @@ export default function Home() {
       <ScrollIndicators />
       <HeroSection />
       <AboutSection />
-      <DepartmentsSection />
-      <ClinicalLabSection />
+      <ServicesCardsSection />
+      <InsuranceSection />
       <ContactSection />
       <Footer />
     </Box>

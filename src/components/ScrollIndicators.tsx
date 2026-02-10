@@ -7,7 +7,7 @@ import { handleSmoothScroll } from '@/lib/smoothScroll';
 const sections = [
   { id: 'inicio', label: 'Inicio' },
   { id: 'acerca', label: 'Acerca' },
-  { id: 'departamentos', label: 'Departamentos' },
+  { id: 'servicios', label: 'Servicios' },
   { id: 'seguro', label: 'Seguro' },
   { id: 'contacto', label: 'Contacto' }
 ];

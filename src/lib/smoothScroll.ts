@@ -2,7 +2,7 @@
  * Smooth scroll utility with easing
  */
 
-export const smoothScrollTo = (targetId: string, duration: number = 1000) => {
+export const smoothScrollTo = (targetId: string, duration: number = 600) => {
   const target = document.getElementById(targetId.replace('#', ''));
   if (!target) return;
 
@@ -38,6 +38,6 @@ export const handleSmoothScroll = (
 ) => {
   if (href.startsWith('#')) {
     event.preventDefault();
-    smoothScrollTo(href, 1000);
+    smoothScrollTo(href, 600);
   }
 };

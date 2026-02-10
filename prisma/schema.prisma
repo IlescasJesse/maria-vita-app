@@ -18,16 +18,21 @@ datasource db {
 /// Tabla de usuarios del sistema
 /// Almacena credenciales y datos básicos
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  passwordHash String   @map("password_hash")
-  role         UserRole @default(PATIENT)
-  firstName    String   @map("first_name") @db.VarChar(100)
-  lastName     String   @map("last_name") @db.VarChar(100)
-  phone        String?  @db.VarChar(15)
-  isActive     Boolean  @default(true) @map("is_active")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  role         UserRole  @default(PATIENT)
+  suffix       String?   @db.VarChar(10) // Dr., Lic., Ing., etc.
+  firstName    String    @map("first_name") @db.VarChar(100)
+  lastName     String    @map("last_name") @db.VarChar(100)
+  dateOfBirth  DateTime? @map("date_of_birth") @db.Date
+  phone        String?   @db.VarChar(15)
+  isActive     Boolean   @default(true) @map("is_active")
+  isNew        Boolean   @default(true) @map("is_new")
+  isAdmin      Boolean   @default(false) @map("is_admin") // Puede administrar sistema
+  adminPermissions Json?  @map("admin_permissions") // Permisos específicos del administrador
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
 
   // Relaciones
   specialist        Specialist?
@@ -39,6 +44,7 @@ model User {
 
 /// Enum de roles de usuario
 enum UserRole {
+  SUPERADMIN
   ADMIN
   SPECIALIST
   PATIENT
@@ -61,6 +67,10 @@ model Specialist {
   biography         String?  @db.Text
   yearsOfExperience Int?     @map("years_of_experience")
   photoUrl          String?  @map("photo_url") @db.VarChar(500)
+  courses           Json?    // Array de cursos realizados
+  certifications    Json?    // Array de certificaciones
+  academicFormation Json?    // Array de formación académica
+  trajectory        Json?    // Array de experiencia laboral/trayectoria
   consultationFee   Decimal? @map("consultation_fee") @db.Decimal(10, 2)
   isAvailable       Boolean  @default(true) @map("is_available")
   createdAt         DateTime @default(now()) @map("created_at")

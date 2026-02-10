@@ -207,6 +207,32 @@ npm run dev:all
 - **Backend API**: http://localhost:5000/api
 - **Health Check**: http://localhost:5000/health
 
+### 🔑 Credenciales de Acceso
+
+Después de ejecutar `npm run seed`, puedes acceder al dashboard con estas credenciales:
+
+#### Super Administrador
+- **Email**: `JESSE@ADMIN`
+- **Password**: `Ajetreo1512!`
+- **Rol**: SUPERADMIN (Acceso completo al sistema)
+
+#### Otros Usuarios de Prueba
+```
+ADMIN:
+Email: admin@mariavita.com
+Password: Admin2026!
+
+ESPECIALISTA:
+Email: doctor@mariavita.com
+Password: Doctor2026!
+
+PACIENTE:
+Email: paciente1@example.com
+Password: Patient2026!
+```
+
+**Nota**: El usuario `JESSE@ADMIN` tiene permisos especiales y no requiere validación de formato de email estándar.
+
 ### Modo Producción
 
 \`\`\`bash

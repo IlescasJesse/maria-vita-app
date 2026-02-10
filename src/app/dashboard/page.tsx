@@ -1,74 +1,42 @@
+/**
+ * Dashboard Principal - Maria Vita
+ * Sistema completo con navegación lateral y módulos según permisos
+ */
+
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import {
-  Box,
-  Container,
-  Typography,
-  Paper,
-  Stack,
-  Button,
-  Avatar,
-  Chip,
-  Grid,
-  Card,
-  CardContent
-} from '@mui/material';
+import { useState } from 'react';
+import { Box, AppBar, Toolbar, Typography, IconButton, Stack, Avatar } from '@mui/material';
 import LogoutIcon from '@mui/icons-material/Logout';
-import PersonIcon from '@mui/icons-material/Person';
-import EmailIcon from '@mui/icons-material/Email';
-import PhoneIcon from '@mui/icons-material/Phone';
-import BadgeIcon from '@mui/icons-material/Badge';
+import { useAuth } from '@/hooks/useAuth';
+import Sidebar from '@/components/dashboard/Sidebar';
 
-interface User {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  role: string;
-  phone?: string;
-}
+// Importar todos los módulos
+import OverviewModule from '@/components/dashboard/modules/OverviewModule';
+import UsersModule from '@/components/dashboard/modules/UsersModule';
+import SpecialistsModule from '@/components/dashboard/modules/SpecialistsModule';
+import AppointmentsModule from '@/components/dashboard/modules/AppointmentsModule';
+import StudiesModule from '@/components/dashboard/modules/StudiesModule';
+import ReportsModule from '@/components/dashboard/modules/ReportsModule';
+import AnalyticsModule from '@/components/dashboard/modules/AnalyticsModule';
+import BillingModule from '@/components/dashboard/modules/BillingModule';
+import AdminsModule from '@/components/dashboard/modules/AdminsModule';
+import DatabaseModule from '@/components/dashboard/modules/DatabaseModule';
+import SettingsModule from '@/components/dashboard/modules/SettingsModule';
 
 export default function DashboardPage() {
-  const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { user, isLoading, isAuthenticated, logout } = useAuth();
+  const [activeModule, setActiveModule] = useState('overview');
 
-  useEffect(() => {
-    // Verificar autenticación
-    const token = localStorage.getItem('token');
-    const userData = localStorage.getItem('user');
-
-    if (!token || !userData) {
-      router.push('/login');
-      return;
-    }
-
-    try {
-      setUser(JSON.parse(userData));
-    } catch (error) {
-      console.error('Error al parsear usuario:', error);
-      router.push('/login');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [router]);
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    router.push('/login');
-  };
-
-  if (isLoading) {
+  // Sin verificaciones de isNew - el login ya manejó el routing
+  if (isLoading || !isAuthenticated) {
     return (
       <Box
         sx={{
           minHeight: '100vh',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center'
+          justifyContent: 'center',
         }}
       >
         <Typography>Cargando...</Typography>
@@ -80,194 +48,98 @@ export default function DashboardPage() {
     return null;
   }
 
-  const getRoleLabel = (role: string) => {
-    const roles: { [key: string]: string } = {
-      ADMIN: 'Administrador',
-      SPECIALIST: 'Especialista',
-      PATIENT: 'Paciente',
-      RECEPTIONIST: 'Recepcionista'
-    };
-    return roles[role] || role;
-  };
-
-  const getRoleColor = (role: string) => {
-    const colors: { [key: string]: 'primary' | 'success' | 'info' | 'warning' } = {
-      ADMIN: 'primary',
-      SPECIALIST: 'success',
-      PATIENT: 'info',
-      RECEPTIONIST: 'warning'
-    };
-    return colors[role] || 'info';
+  // Renderizar el módulo activo
+  const renderModule = () => {
+    switch (activeModule) {
+      case 'overview':
+        return <OverviewModule />;
+      case 'users':
+        return <UsersModule />;
+      case 'specialists':
+        return <SpecialistsModule />;
+      case 'appointments':
+        return <AppointmentsModule />;
+      case 'studies':
+        return <StudiesModule />;
+      case 'reports':
+        return <ReportsModule />;
+      case 'analytics':
+        return <AnalyticsModule />;
+      case 'billing':
+        return <BillingModule />;
+      case 'admins':
+        return <AdminsModule />;
+      case 'database':
+        return <DatabaseModule />;
+      case 'settings':
+        return <SettingsModule />;
+      default:
+        return <OverviewModule />;
+    }
   };
 
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
-        py: 4
-      }}
-    >
-      <Container maxWidth="lg">
-        {/* Header */}
-        <Paper
-          elevation={3}
+    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+      {/* Sidebar */}
+      <Sidebar activeModule={activeModule} onModuleChange={setActiveModule} />
+
+      {/* Contenido Principal */}
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          minHeight: '100vh',
+          backgroundColor: 'grey.50',
+        }}
+      >
+        {/* AppBar Superior */}
+        <AppBar
+          position="sticky"
+          elevation={1}
           sx={{
-            p: 3,
-            mb: 4,
-            borderRadius: 3,
-            background: 'linear-gradient(135deg, #00875F 0%, #006644 100%)',
-            color: 'white'
+            backgroundColor: 'white',
+            color: 'text.primary',
+            borderBottom: '1px solid',
+            borderColor: 'divider',
           }}
         >
-          <Stack
-            direction={{ xs: 'column', sm: 'row' }}
-            justifyContent="space-between"
-            alignItems={{ xs: 'flex-start', sm: 'center' }}
-            spacing={2}
-          >
+          <Toolbar>
+            <Typography variant="h6" sx={{ flexGrow: 1 }}>
+              Panel de Control
+            </Typography>
+
             <Stack direction="row" spacing={2} alignItems="center">
               <Avatar
                 sx={{
-                  width: 64,
-                  height: 64,
-                  bgcolor: 'white',
-                  color: 'primary.main',
-                  fontSize: '2rem',
-                  fontWeight: 700
+                  width: 36,
+                  height: 36,
+                  bgcolor: 'primary.main',
+                  fontSize: '0.875rem',
                 }}
               >
                 {user.firstName.charAt(0)}
                 {user.lastName.charAt(0)}
               </Avatar>
-              <Box>
-                <Typography variant="h4" fontWeight={700}>
-                  ¡Bienvenido, {user.firstName}!
+              <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+                <Typography variant="body2" fontWeight="medium">
+                  {user.firstName} {user.lastName}
                 </Typography>
-                <Chip
-                  label={getRoleLabel(user.role)}
-                  color={getRoleColor(user.role)}
-                  size="small"
-                  sx={{ mt: 1 }}
-                />
+                <Typography variant="caption" color="text.secondary">
+                  {user.email}
+                </Typography>
               </Box>
+              <IconButton onClick={logout} color="inherit" title="Cerrar Sesión">
+                <LogoutIcon />
+              </IconButton>
             </Stack>
+          </Toolbar>
+        </AppBar>
 
-            <Button
-              variant="outlined"
-              startIcon={<LogoutIcon />}
-              onClick={handleLogout}
-              sx={{
-                color: 'white',
-                borderColor: 'white',
-                '&:hover': {
-                  borderColor: 'white',
-                  bgcolor: 'rgba(255, 255, 255, 0.1)'
-                }
-              }}
-            >
-              Cerrar Sesión
-            </Button>
-          </Stack>
-        </Paper>
-
-        {/* Información del Usuario */}
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
-            <Card elevation={2} sx={{ borderRadius: 3 }}>
-              <CardContent>
-                <Typography variant="h6" fontWeight={600} gutterBottom color="primary">
-                  Información Personal
-                </Typography>
-
-                <Stack spacing={2} mt={2}>
-                  <Stack direction="row" spacing={2} alignItems="center">
-                    <PersonIcon color="primary" />
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Nombre Completo
-                      </Typography>
-                      <Typography variant="body1" fontWeight={500}>
-                        {user.firstName} {user.lastName}
-                      </Typography>
-                    </Box>
-                  </Stack>
-
-                  <Stack direction="row" spacing={2} alignItems="center">
-                    <EmailIcon color="primary" />
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Correo Electrónico
-                      </Typography>
-                      <Typography variant="body1" fontWeight={500}>
-                        {user.email}
-                      </Typography>
-                    </Box>
-                  </Stack>
-
-                  {user.phone && (
-                    <Stack direction="row" spacing={2} alignItems="center">
-                      <PhoneIcon color="primary" />
-                      <Box>
-                        <Typography variant="body2" color="text.secondary">
-                          Teléfono
-                        </Typography>
-                        <Typography variant="body1" fontWeight={500}>
-                          {user.phone}
-                        </Typography>
-                      </Box>
-                    </Stack>
-                  )}
-
-                  <Stack direction="row" spacing={2} alignItems="center">
-                    <BadgeIcon color="primary" />
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Rol
-                      </Typography>
-                      <Typography variant="body1" fontWeight={500}>
-                        {getRoleLabel(user.role)}
-                      </Typography>
-                    </Box>
-                  </Stack>
-                </Stack>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          <Grid item xs={12} md={6}>
-            <Card elevation={2} sx={{ borderRadius: 3 }}>
-              <CardContent>
-                <Typography variant="h6" fontWeight={600} gutterBottom color="primary">
-                  Próximamente
-                </Typography>
-
-                <Typography variant="body2" color="text.secondary" mt={2}>
-                  Esta sección mostrará:
-                </Typography>
-
-                <Stack spacing={1} mt={2}>
-                  <Typography variant="body2">• Citas programadas</Typography>
-                  <Typography variant="body2">• Estudios pendientes</Typography>
-                  <Typography variant="body2">• Notificaciones</Typography>
-                  <Typography variant="body2">• Accesos rápidos</Typography>
-                </Stack>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
-
-        {/* Botón para volver al inicio */}
-        <Box textAlign="center" mt={4}>
-          <Button
-            variant="text"
-            onClick={() => router.push('/')}
-            sx={{ textTransform: 'none' }}
-          >
-            ← Volver al inicio
-          </Button>
+        {/* Área de Contenido */}
+        <Box sx={{ p: 4 }}>
+          {renderModule()}
         </Box>
-      </Container>
+      </Box>
     </Box>
   );
 }

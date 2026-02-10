@@ -13,7 +13,9 @@ import {
   login,
   getProfile,
   updateProfile,
-  logout
+  logout,
+  completeProfile,
+  completeAdminProfile
 } from '../controllers/authController';
 
 const router = Router();
@@ -27,9 +29,20 @@ const router = Router();
  */
 const registerValidation = [
   body('email')
-    .isEmail().withMessage('Email no válido')
-    .normalizeEmail()
-    .trim(),
+    .trim()
+    .custom((value) => {
+      // Permitir formato JESSE@ADMIN para SUPERADMIN
+      if (value === 'JESSE@ADMIN' || value === 'jesse@admin') {
+        return true;
+      }
+      // Validar formato de email estándar para otros usuarios
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(value)) {
+        throw new Error('Email no válido');
+      }
+      return true;
+    })
+    .normalizeEmail({ all_lowercase: false }), // No convertir a minúsculas
   body('password')
     .isLength({ min: 6 }).withMessage('La contraseña debe tener al menos 6 caracteres')
     .matches(/\d/).withMessage('La contraseña debe contener al menos un número'),
@@ -46,7 +59,7 @@ const registerValidation = [
     .matches(/^\+?[\d\s-()]+$/).withMessage('Teléfono no válido'),
   body('role')
     .optional()
-    .isIn(['ADMIN', 'SPECIALIST', 'PATIENT', 'RECEPTIONIST']).withMessage('Rol no válido'),
+    .isIn(['SUPERADMIN', 'ADMIN', 'SPECIALIST', 'PATIENT', 'RECEPTIONIST']).withMessage('Rol no válido'),
   validate
 ];
 
@@ -55,9 +68,20 @@ const registerValidation = [
  */
 const loginValidation = [
   body('email')
-    .isEmail().withMessage('Email no válido')
-    .normalizeEmail()
-    .trim(),
+    .trim()
+    .custom((value) => {
+      // Permitir formato JESSE@ADMIN para SUPERADMIN
+      if (value === 'JESSE@ADMIN' || value === 'jesse@admin') {
+        return true;
+      }
+      // Validar formato de email estándar para otros usuarios
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(value)) {
+        throw new Error('Email no válido');
+      }
+      return true;
+    })
+    .normalizeEmail({ all_lowercase: false }), // No convertir a minúsculas
   body('password')
     .notEmpty().withMessage('La contraseña es requerida'),
   validate
@@ -175,6 +199,98 @@ router.put('/me', authenticate, updateProfileValidation, updateProfile);
  * - 200: Logout exitoso
  */
 router.post('/logout', authenticate, logout);
+
+/**
+ * POST /api/auth/complete-profile
+ * Permite a usuarios nuevos completar su perfil por primera vez
+ * Incluye establecer una nueva contraseña
+ * 
+ * Headers:
+ * - Authorization: Bearer {token}
+ * 
+ * Body:
+ * - suffix?: string
+ * - firstName: string
+ * - lastName: string
+ * - dateOfBirth?: string
+ * - phone?: string
+ * - newPassword: string
+ * - [campos de especialista si aplica]
+ * 
+ * Response:
+ * - 200: Perfil completado exitosamente
+ * - 401: No autenticado
+ * - 400: Perfil ya completado o datos inválidos
+ */
+const completeProfileValidation = [
+  body('firstName')
+    .trim()
+    .notEmpty().withMessage('El nombre es requerido'),
+  body('lastName')
+    .trim()
+    .notEmpty().withMessage('Los apellidos son requeridos'),
+  body('newPassword')
+    .notEmpty().withMessage('La contraseña es requerida')
+    .isLength({ min: 8 }).withMessage('La contraseña debe tener al menos 8 caracteres')
+    .matches(/[A-Z]/).withMessage('La contraseña debe contener al menos una mayúscula')
+    .matches(/[a-z]/).withMessage('La contraseña debe contener al menos una minúscula')
+    .matches(/\d/).withMessage('La contraseña debe contener al menos un número')
+    .matches(/[!@#$%^&*]/).withMessage('La contraseña debe contener al menos un carácter especial (!@#$%^&*)'),
+  body('phone')
+    .optional()
+    .isNumeric().withMessage('El teléfono debe ser numérico'),
+  validate
+];
+
+router.post('/complete-profile', authenticate, completeProfileValidation, completeProfile);
+
+/**
+ * POST /api/auth/complete-admin-profile
+ * Permite a administradores completar su perfil y asignar permisos
+ * 
+ * Headers:
+ * - Authorization: Bearer {token}
+ * 
+ * Body:
+ * - systemAccess: boolean
+ * - manageUsers: boolean
+ * - manageSpecialists: boolean
+ * - manageAppointments: boolean
+ * - manageStudies: boolean
+ * - generateReports: boolean
+ * - systemSettings: boolean
+ * - manageRecepcionists: boolean
+ * - viewAnalytics: boolean
+ * - department?: string
+ * 
+ * Response:
+ * - 200: Perfil de administrador completado
+ * - 401: No autenticado
+ * - 403: Usuario no es administrador
+ */
+const completeAdminProfileValidation = [
+  body('systemAccess')
+    .isBoolean().withMessage('systemAccess debe ser boolean'),
+  body('manageUsers')
+    .isBoolean().withMessage('manageUsers debe ser boolean'),
+  body('manageSpecialists')
+    .isBoolean().withMessage('manageSpecialists debe ser boolean'),
+  body('manageAppointments')
+    .isBoolean().withMessage('manageAppointments debe ser boolean'),
+  body('manageStudies')
+    .isBoolean().withMessage('manageStudies debe ser boolean'),
+  body('generateReports')
+    .isBoolean().withMessage('generateReports debe ser boolean'),
+  body('systemSettings')
+    .isBoolean().withMessage('systemSettings debe ser boolean'),
+  body('manageRecepcionists')
+    .isBoolean().withMessage('manageRecepcionists debe ser boolean'),
+  body('viewAnalytics')
+    .isBoolean().withMessage('viewAnalytics debe ser boolean'),
+  validate
+];
+
+router.post('/complete-admin-profile', authenticate, completeAdminProfileValidation, completeAdminProfile);
 
 // ============================================
 // EXPORTACIÓN

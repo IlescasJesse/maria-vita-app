@@ -9,12 +9,37 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import { config } from 'dotenv';
+import path from 'path';
+import fs from 'fs';
 import { connectDatabases, disconnectDatabases, checkDatabasesHealth } from './config/database';
 import routes from './routes';
 import { errorHandler } from './middlewares/errorHandler';
 
-// Cargar variables de entorno
-config();
+// Cargar variables de entorno desde .env.local
+// Try multiple paths to ensure we find the file
+const possiblePaths = [
+  path.join(__dirname, '../../.env.local'),  // From src/backend/server.ts
+  path.join(__dirname, '../../../.env.local'),   // Fallback
+  path.resolve('.env.local'),
+  path.resolve(process.cwd(), '.env.local')
+];
+
+let envLoaded = false;
+for (const envPath of possiblePaths) {
+  if (fs.existsSync(envPath)) {
+    console.log(`[ENV] Loading from: ${envPath}`);
+    config({ path: envPath });
+    envLoaded = true;
+    break;
+  }
+}
+
+if (!envLoaded) {
+  console.warn(`[ENV] ⚠ .env.local not found in any expected location`);
+  config(); // Fallback to default behavior
+}
+
+console.log(`[ENV] REPLICATE_API_TOKEN: ${process.env.REPLICATE_API_TOKEN ? '✓ configured' : '✗ NOT configured'}`);
 
 // ============================================
 // CONFIGURACIÓN DEL SERVIDOR

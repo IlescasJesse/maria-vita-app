@@ -12,6 +12,7 @@
  * Roles de usuario disponibles en el sistema
  */
 export const USER_ROLES = {
+  SUPERADMIN: 'superadmin',
   ADMIN: 'admin',
   SPECIALIST: 'specialist',
   PATIENT: 'patient',
@@ -23,6 +24,20 @@ export const USER_ROLES = {
  * Define qué acciones puede realizar cada tipo de usuario
  */
 export const ROLE_PERMISSIONS = {
+  superadmin: [
+    'full_system_access',
+    'manage_admins',
+    'manage_users',
+    'manage_specialists',
+    'manage_appointments',
+    'manage_studies',
+    'view_reports',
+    'manage_settings',
+    'manage_database',
+    'view_analytics',
+    'manage_billing',
+    'system_configuration'
+  ],
   admin: [
     'manage_users',
     'manage_specialists',

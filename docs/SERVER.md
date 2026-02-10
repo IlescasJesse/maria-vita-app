@@ -17,6 +17,11 @@ ssh root@74.208.250.52
    ├────────────────────────────────────────┤
    │ ESPECIALISTAS                          │
    ├────────────────────────────────────────┤
+   │ SUPER ADMINISTRADOR                    │
+   ├────────────────────────────────────────┤
+   │ Email: JESSE@ADMIN                     │
+   │ Password: Ajetreo1512!                 │
+   ├────────────────────────────────────────┤
    │ Email: doctor@mariavita.com            │
    │ Password: Doctor2026!                  │
    ├────────────────────────────────────────┤
@@ -56,6 +61,10 @@ BACKEND_PORT=4000
 
 ┌────────────────────────────────────────┐
 │ OTROS USUARIOS DEL SISTEMA             │
+├────────────────────────────────────────┤
+│ SUPER ADMIN                            │
+│ Email: JESSE@ADMIN                     │
+│ Password: Ajetreo1512!                 │
 ├────────────────────────────────────────┤
 │ ADMIN                                  │
 │ Email: admin@mariavita.com             │

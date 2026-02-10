@@ -18,24 +18,23 @@ import LinkedInIcon from '@mui/icons-material/LinkedIn';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import PhoneIcon from '@mui/icons-material/Phone';
 import EmailIcon from '@mui/icons-material/Email';
-import Image from 'next/image';
-import { handleSmoothScroll } from '@/lib/smoothScroll';
 
 const quickLinks = [
-  { label: 'Inicio', href: '#inicio' },
-  { label: 'Acerca de', href: '#acerca' },
-  { label: 'Departamentos', href: '#departamentos' },
-  { label: 'Seguro', href: '#seguro' },
-  { label: 'Contacto', href: '#contacto' }
+  { label: 'Inicio', href: '/' },
+  { label: 'Acerca de', href: '/#acerca' },
+  { label: 'Servicios Médicos', href: '/servicios/servicios-medicos' },
+  { label: 'Laboratorios', href: '/servicios/laboratorios' },
+  { label: 'Seguros', href: '/#seguro' },
+  { label: 'Contacto', href: '/#contacto' }
 ];
 
 const services = [
-  'Cardiología',
-  'Neurología',
-  'Ortopedia',
-  'Oftalmología',
-  'Pediatría',
-  'Medicina General'
+  { label: 'Cardiología', href: '/servicios/servicios-medicos' },
+  { label: 'Neurología', href: '/servicios/servicios-medicos' },
+  { label: 'Ortopedia', href: '/servicios/servicios-medicos' },
+  { label: 'Laboratorio Clínico', href: '/servicios/laboratorios' },
+  { label: 'Estudios Especializados', href: '/servicios/laboratorios' },
+  { label: 'Consulta General', href: '/servicios/servicios-medicos' }
 ];
 
 export default function Footer() {
@@ -56,12 +55,8 @@ export default function Footer() {
             <Stack spacing={2}>
               <Box
                 component="a"
-                href="#inicio"
-                onClick={(e: any) => handleSmoothScroll(e, '#inicio')}
+                href="/"
                 sx={{
-                  position: 'relative',
-                  height: 60,
-                  width: 200,
                   mb: 1,
                   display: 'block',
                   cursor: 'pointer',
@@ -71,12 +66,29 @@ export default function Footer() {
                   }
                 }}
               >
-                <Image
-                  src="/logo.jpeg"
-                  alt="Maria Vita de Antequera - Clínica y Laboratorios"
-                  fill
-                  style={{ objectFit: 'contain', objectPosition: 'left' }}
-                />
+                <Typography
+                  variant="h5"
+                  sx={{
+                    fontWeight: 800,
+                    color: 'white',
+                    letterSpacing: 0.5,
+                    fontFamily: 'system-ui, -apple-system, sans-serif'
+                  }}
+                >
+                  MARIA VITA
+                </Typography>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'grey.400',
+                    letterSpacing: 2,
+                    fontWeight: 500,
+                    display: 'block',
+                    mt: 0.5
+                  }}
+                >
+                  DE ANTEQUERA
+                </Typography>
               </Box>
               <Typography variant="body2" sx={{ color: 'grey.400', lineHeight: 1.7 }}>
                 Dedicados a proporcionar servicios de salud de la más alta calidad
@@ -137,7 +149,6 @@ export default function Footer() {
                 <Link
                   key={index}
                   href={link.href}
-                  onClick={(e: any) => handleSmoothScroll(e, link.href)}
                   underline="hover"
                   sx={{
                     color: 'grey.400',
@@ -159,13 +170,19 @@ export default function Footer() {
             </Typography>
             <Stack spacing={1}>
               {services.map((service, index) => (
-                <Typography
+                <Link
                   key={index}
-                  variant="body2"
-                  sx={{ color: 'grey.400', fontSize: '0.875rem' }}
+                  href={service.href}
+                  underline="hover"
+                  sx={{
+                    color: 'grey.400',
+                    fontSize: '0.875rem',
+                    cursor: 'pointer',
+                    '&:hover': { color: 'primary.light' }
+                  }}
                 >
-                  {service}
-                </Typography>
+                  {service.label}
+                </Link>
               ))}
             </Stack>
           </Grid>

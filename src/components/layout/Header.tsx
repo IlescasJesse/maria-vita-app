@@ -15,43 +15,59 @@ import {
   List,
   ListItem,
   ListItemButton,
-  ListItemText
+  ListItemText,
+  Menu,
+  MenuItem
 } from '@mui/material';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import PhoneIcon from '@mui/icons-material/Phone';
 import MenuIcon from '@mui/icons-material/Menu';
 import LoginIcon from '@mui/icons-material/Login';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import Image from 'next/image';
 import { useState } from 'react';
 import { alpha } from '@mui/material';
-import { handleSmoothScroll } from '@/lib/smoothScroll';
+import Link from 'next/link';
 
 const navItems = [
-  { label: 'INICIO', href: '#inicio' },
-  { label: 'ACERCA DE', href: '#acerca' },
-  { label: 'DEPARTAMENTOS', href: '#departamentos' },
-  { label: 'SEGURO', href: '#seguro' },
-  { label: 'CONTACTO', href: '#contacto' }
+  { label: 'INICIO', href: '/#inicio' },
+  { label: 'ACERCA DE', href: '/#acerca' },
+  { 
+    label: 'SERVICIOS', 
+    href: '/#servicios',
+    submenu: [
+      { label: 'Servicios Médicos', href: '/servicios/servicios-medicos' },
+      { label: 'Laboratorios', href: '/servicios/laboratorios' }
+    ]
+  },
+  { label: 'SEGURO', href: '/#seguro' },
+  { label: 'CONTACTO', href: '/#contacto' }
 ];
 
 export default function Header() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const openMenu = Boolean(anchorEl);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
+  };
+
+  const handleMenuClick = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
   };
 
   const drawer = (
     <Box onClick={handleDrawerToggle} sx={{ textAlign: 'center' }}>
       <Box
         component="a"
-        href="#inicio"
-        onClick={(e: any) => {
-          handleSmoothScroll(e, '#inicio');
-          handleDrawerToggle();
-        }}
+        href="/"
         sx={{
           position: 'relative',
           height: 50,
@@ -73,18 +89,56 @@ export default function Header() {
       </Box>
       <List>
         {navItems.map((item) => (
-          <ListItem key={item.label} disablePadding>
-            <ListItemButton 
-              sx={{ textAlign: 'center' }} 
-              href={item.href}
-              onClick={(e: any) => {
-                handleSmoothScroll(e, item.href); 
-                handleDrawerToggle();
-              }}
-            >
-              <ListItemText primary={item.label} />
-            </ListItemButton>
-          </ListItem>
+          item.submenu ? (
+            <Box key={item.label}>
+              <ListItem disablePadding>
+                <ListItemButton 
+                  sx={{ textAlign: 'center' }}
+                  disabled
+                >
+                  <ListItemText 
+                    primary={item.label} 
+                    sx={{ 
+                      '& .MuiTypography-root': { 
+                        fontWeight: 600,
+                        color: 'primary.main'
+                      } 
+                    }} 
+                  />
+                </ListItemButton>
+              </ListItem>
+              {item.submenu.map((subItem) => (
+                <ListItem key={subItem.label} disablePadding>
+                  <ListItemButton 
+                    sx={{ textAlign: 'center', pl: 4 }} 
+                    component={Link}
+                    href={subItem.href}
+                    onClick={handleDrawerToggle}
+                  >
+                    <ListItemText 
+                      primary={subItem.label}
+                      sx={{ 
+                        '& .MuiTypography-root': { 
+                          fontSize: '0.9rem'
+                        } 
+                      }}
+                    />
+                  </ListItemButton>
+                </ListItem>
+              ))}
+            </Box>
+          ) : (
+            <ListItem key={item.label} disablePadding>
+              <ListItemButton 
+                sx={{ textAlign: 'center' }} 
+                component="a"
+                href={item.href}
+                onClick={handleDrawerToggle}
+              >
+                <ListItemText primary={item.label} />
+              </ListItemButton>
+            </ListItem>
+          )
         ))}
         <ListItem disablePadding>
           <ListItemButton 
@@ -153,8 +207,7 @@ export default function Header() {
             <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}>
               <Box
                 component="a"
-                href="#inicio"
-                onClick={(e: any) => handleSmoothScroll(e, '#inicio')}
+                href="/"
                 sx={{
                   position: 'relative',
                   height: { xs: 50, md: 60 },
@@ -181,23 +234,87 @@ export default function Header() {
             {!isMobile && (
               <Stack direction="row" spacing={1} alignItems="center">
                 {navItems.map((item) => (
-                  <Button
-                    key={item.label}
-                    href={item.href}
-                    onClick={(e) => handleSmoothScroll(e, item.href)}
-                    sx={{
-                      color: 'text.primary',
-                      fontWeight: 500,
-                      fontSize: '0.875rem',
-                      px: 2,
-                      '&:hover': {
-                        bgcolor: 'action.hover',
-                        color: 'primary.main'
-                      }
-                    }}
-                  >
-                    {item.label}
-                  </Button>
+                  item.submenu ? (
+                    <Box key={item.label}>
+                      <Button
+                        onClick={handleMenuClick}
+                        endIcon={<KeyboardArrowDownIcon />}
+                        sx={{
+                          color: 'text.primary',
+                          fontWeight: 500,
+                          fontSize: '0.875rem',
+                          px: 2,
+                          '&:hover': {
+                            bgcolor: 'action.hover',
+                            color: 'primary.main'
+                          }
+                        }}
+                      >
+                        {item.label}
+                      </Button>
+                      <Menu
+                        anchorEl={anchorEl}
+                        open={openMenu}
+                        onClose={handleMenuClose}
+                        MenuListProps={{
+                          'aria-labelledby': 'servicios-button',
+                        }}
+                        sx={{
+                          '& .MuiPaper-root': {
+                            mt: 1,
+                            minWidth: 200,
+                            borderRadius: 2,
+                            boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
+                          }
+                        }}
+                      >
+                        {item.submenu.map((subItem) => (
+                          <MenuItem
+                            key={subItem.label}
+                            onClick={handleMenuClose}
+                            sx={{
+                              py: 1.5,
+                              px: 2,
+                              '&:hover': {
+                                bgcolor: 'primary.main',
+                                color: 'white'
+                              }
+                            }}
+                          >
+                            <Link 
+                              href={subItem.href}
+                              style={{ 
+                                textDecoration: 'none', 
+                                color: 'inherit',
+                                width: '100%',
+                                display: 'block'
+                              }}
+                            >
+                              {subItem.label}
+                            </Link>
+                          </MenuItem>
+                        ))}
+                      </Menu>
+                    </Box>
+                  ) : (
+                    <Button
+                      key={item.label}
+                      component="a"
+                      href={item.href}
+                      sx={{
+                        color: 'text.primary',
+                        fontWeight: 500,
+                        fontSize: '0.875rem',
+                        px: 2,
+                        '&:hover': {
+                          bgcolor: 'action.hover',
+                          color: 'primary.main'
+                        }
+                      }}
+                    >
+                      {item.label}
+                    </Button>
+                  )
                 ))}
                 <Button
                   variant="outlined"

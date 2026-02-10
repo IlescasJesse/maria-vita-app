@@ -45,7 +45,7 @@ const ActivityLogSchema = new Schema<IActivityLog>({
   action: {
     type: String,
     required: true,
-    enum: ['CREATE', 'UPDATE', 'DELETE', 'VIEW', 'LOGIN', 'LOGOUT', 'EXPORT'],
+    enum: ['CREATE', 'UPDATE', 'DELETE', 'VIEW', 'LIST', 'LOGIN', 'LOGOUT', 'EXPORT', 'COMPLETE_PROFILE', 'COMPLETE_ADMIN_PROFILE'],
     index: true
   },
   module: {

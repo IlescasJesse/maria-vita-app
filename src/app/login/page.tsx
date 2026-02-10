@@ -66,14 +66,28 @@ export default function LoginPage() {
       localStorage.setItem('token', data.data.token);
       localStorage.setItem('user', JSON.stringify(data.data.user));
 
-      // Redirigir según el rol
+      // Redirigir según estado y rol
       const role = data.data.user.role;
-      if (role === 'ADMIN' || role === 'RECEPTIONIST') {
+      // isNew puede venir como 1/0 (MySQL) o true/false
+      if (data.data.user.isNew === true || data.data.user.isNew === 1) {
+        // Si es ADMIN o SPECIALIST nuevo, va a completar perfil de admin
+        if (role === 'ADMIN' || role === 'SPECIALIST') {
+          router.push('/completar-perfil/admin');
+        } else {
+          // Otros roles van a completar perfil normal
+          router.push('/completar-perfil');
+        }
+        return;
+      }
+      if (role === 'SUPERADMIN' || role === 'ADMIN' || role === 'RECEPTIONIST') {
         router.push('/dashboard');
       } else if (role === 'SPECIALIST') {
         router.push('/dashboard/especialista');
-      } else {
+      } else if (role === 'PATIENT') {
         router.push('/dashboard/paciente');
+      } else {
+        // Fallback para cualquier otro rol
+        router.push('/dashboard');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al iniciar sesión');
