@@ -37,7 +37,8 @@ export const ClinicAvatar: React.FC<ClinicAvatarProps> = ({
     return combined.charCodeAt(0) % clinicColors.length;
   };
 
-  const color = clinicColors[getColorIndex()];
+  const fallbackColor = clinicColors[0] ?? { bg: '#1e40af', text: '#ffffff' };
+  const color = clinicColors[getColorIndex()] ?? fallbackColor;
 
   // Obtener iniciales
   const initials = `${(firstName || 'U')[0]}${(lastName || 'S')[0]}`.toUpperCase();

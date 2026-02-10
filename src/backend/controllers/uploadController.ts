@@ -326,11 +326,12 @@ export const enhanceProfilePhoto = async (
   }
 };
 
-/**
- * Estandariza una foto de perfil usando Replicate API
- * Genera una foto profesional nueva con especificaciones estándar
- * Intenta encontrar automáticamente la mejor versión disponible del modelo
- */
+/*
+// ============================================
+// FUNCIONES DE IA COMENTADAS (deshabilitadas por costo)
+// Actualmente las fotos se guardan originales con avatar fallback
+// ============================================
+
 async function standardizePhotoWithControlNet(
   firstName: string,
   lastName: string,
@@ -452,9 +453,6 @@ async function standardizePhotoWithControlNet(
   }
 }
 
-/**
- * Mejora una foto usando generación de imagen con Replicate API
- */
 async function enhancePhotoWithImageToImage(
   firstName: string,
   lastName: string,
@@ -565,4 +563,4 @@ async function enhancePhotoWithImageToImage(
   }
 
   throw new Error('No output received from Replicate API');
-}
+}*/

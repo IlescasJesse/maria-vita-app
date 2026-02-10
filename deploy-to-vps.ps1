@@ -5,11 +5,11 @@
 # ============================================
 
 # ========== CONFIGURACIÓN ==========
-$VPS_USER = "tu_usuario"           # Cambiar: usuario SSH del VPS
-$VPS_HOST = "tu_vps_ip"            # Cambiar: IP o dominio del VPS
+$VPS_USER = "root"           # Cambiar: usuario SSH del VPS
+$VPS_HOST = "74.208.250.52"            # Cambiar: IP o dominio del VPS
 $VPS_PORT = 22                     # Cambiar si usas puerto diferente
 $VPS_PATH = "/var/www/maria-vita-app"  # Ruta del proyecto en VPS
-$SSH_KEY = $null                   # Cambiar: ruta a clave privada, o dejar $null para contraseña
+$SSH_KEY =                    # Cambiar: ruta a clave privada, o dejar $null para contraseña
 
 # ========== VALIDACIÓN ==========
 if ($VPS_USER -eq "tu_usuario" -or $VPS_HOST -eq "tu_vps_ip") {
