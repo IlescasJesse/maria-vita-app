@@ -103,11 +103,11 @@ export default function LoginPage() {
       const role = data.data.user.role;
       // isNew puede venir como 1/0 (MySQL) o true/false
       if (data.data.user.isNew === true || data.data.user.isNew === 1) {
-        // Si es ADMIN o SPECIALIST nuevo, va a completar perfil de admin
-        if (role === 'ADMIN' || role === 'SPECIALIST') {
+        // Admin nuevo completa perfil de admin
+        if (role === 'ADMIN') {
           router.push('/completar-perfil/admin');
         } else {
-          // Otros roles van a completar perfil normal
+          // Especialistas y otros roles completan perfil general
           router.push('/completar-perfil');
         }
         return;

@@ -76,36 +76,93 @@ export default function CompletarPerfilPage() {
     trajectory: [],
   });
 
-  // Solo verificar autenticació básica - NO redirects automáticos
+  const normalizeRole = (role?: string) => String(role || '').trim().toUpperCase();
+
+  // Solo verificar autenticación básica - NO redirects automáticos
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      router.replace('/login');
-      return;
-    }
-
-    // Cargar datos del usuario sin verificar isNew
-    const userData = localStorage.getItem('user');
-    if (userData) {
-      try {
-        const user = JSON.parse(userData);
-        setUserId(user.id);
-        setUserRole(user.role);
-        setFormData(prev => ({
-          ...prev,
-          firstName: user.firstName || '',
-          lastName: user.lastName || '',
-          phone: user.phone || '',
-        }));
-      } catch (err) {
-        console.error('Error parseando usuario:', err);
+    const initializeUser = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        router.replace('/login');
+        return;
       }
-    }
 
-    setLoading(false);
+      let shouldFetchProfile = true;
+
+      const userData = localStorage.getItem('user');
+      if (userData) {
+        try {
+          const user = JSON.parse(userData);
+          const normalizedRole = normalizeRole(user.role);
+
+          if (user.id) {
+            setUserId(user.id);
+          }
+
+          if (normalizedRole) {
+            setUserRole(normalizedRole);
+            shouldFetchProfile = false;
+          }
+
+          setFormData(prev => ({
+            ...prev,
+            firstName: user.firstName || '',
+            lastName: user.lastName || '',
+            phone: user.phone || '',
+          }));
+        } catch (err) {
+          console.error('Error parseando usuario:', err);
+        }
+      }
+
+      if (shouldFetchProfile) {
+        try {
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+          const response = await fetch(`${apiUrl}/auth/profile`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+
+          if (response.ok) {
+            const profileResponse = await response.json();
+            const profileUser = profileResponse?.data;
+            const normalizedRole = normalizeRole(profileUser?.role);
+
+            if (profileUser?.id) {
+              setUserId(profileUser.id);
+            }
+            if (normalizedRole) {
+              setUserRole(normalizedRole);
+            }
+
+            setFormData(prev => ({
+              ...prev,
+              firstName: profileUser?.firstName || prev.firstName,
+              lastName: profileUser?.lastName || prev.lastName,
+              phone: profileUser?.phone || prev.phone,
+            }));
+
+            const localUser = localStorage.getItem('user');
+            const parsedLocalUser = localUser ? JSON.parse(localUser) : {};
+            localStorage.setItem('user', JSON.stringify({
+              ...parsedLocalUser,
+              ...profileUser,
+              role: normalizedRole || profileUser?.role,
+            }));
+          }
+        } catch (err) {
+          console.error('Error obteniendo perfil:', err);
+        }
+      }
+
+      setLoading(false);
+    };
+
+    initializeUser();
   }, [router]);
 
-  const steps = userRole === 'SPECIALIST'
+  const steps = normalizeRole(userRole) === 'SPECIALIST'
     ? ['Bienvenida', 'Nuestro Compromiso', 'Datos Personales', 'Información Profesional', 'Formación y Experiencia', 'Foto de Perfil']
     : ['Bienvenida', 'Nuestro Compromiso', 'Datos Personales', 'Contacto'];
 
@@ -474,7 +531,7 @@ export default function CompletarPerfilPage() {
         );
 
       case 3: // Información Profesional (solo especialistas)
-        if (userRole !== 'SPECIALIST') return null;
+        if (normalizeRole(userRole) !== 'SPECIALIST') return null;
         return (
           <Grid container spacing={3}>
             <Grid item xs={12} sm={6}>
@@ -549,7 +606,7 @@ export default function CompletarPerfilPage() {
         );
 
       case 4: // Formación y Experiencia (solo especialistas)
-        if (userRole !== 'SPECIALIST') return null;
+        if (normalizeRole(userRole) !== 'SPECIALIST') return null;
         return (
           <Box>
             {/* Formación Académica */}
@@ -725,7 +782,7 @@ export default function CompletarPerfilPage() {
         );
 
       case 5: // Foto de Perfil (solo especialistas)
-        if (userRole !== 'SPECIALIST') return null;
+        if (normalizeRole(userRole) !== 'SPECIALIST') return null;
         return (
           <Box textAlign="center">
             <Typography variant="h6" gutterBottom>Foto de Perfil Profesional</Typography>
