@@ -29,7 +29,7 @@ import {
   Favorite as FavoriteIcon,
   Lock as LockIcon,
 } from '@mui/icons-material';
-import { completeSpecialistProfileSchema } from '@/lib/validations';
+import { completeAdminProfileSchema, completeSpecialistProfileSchema } from '@/lib/validations';
 
 interface ProfileFormData {
   // Datos básicos (todos los roles)
@@ -78,6 +78,20 @@ export default function CompletarPerfilPage() {
 
   const normalizeRole = (role?: string) => String(role || '').trim().toUpperCase();
 
+  const getRoleFromToken = (token?: string | null) => {
+    if (!token) return '';
+    try {
+      const payloadPart = token.split('.')[1];
+      if (!payloadPart) return '';
+      const base64 = payloadPart.replace(/-/g, '+').replace(/_/g, '/');
+      const paddedBase64 = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+      const payload = JSON.parse(atob(paddedBase64));
+      return normalizeRole(payload?.role);
+    } catch {
+      return '';
+    }
+  };
+
   // Solo verificar autenticación básica - NO redirects automáticos
   useEffect(() => {
     const initializeUser = async () => {
@@ -101,7 +115,6 @@ export default function CompletarPerfilPage() {
 
           if (normalizedRole) {
             setUserRole(normalizedRole);
-            shouldFetchProfile = false;
           }
 
           setFormData(prev => ({
@@ -115,44 +128,50 @@ export default function CompletarPerfilPage() {
         }
       }
 
-      if (shouldFetchProfile) {
-        try {
-          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
-          const response = await fetch(`${apiUrl}/auth/profile`, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          });
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+        const response = await fetch(`${apiUrl}/auth/profile`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
 
-          if (response.ok) {
-            const profileResponse = await response.json();
-            const profileUser = profileResponse?.data;
-            const normalizedRole = normalizeRole(profileUser?.role);
+        if (response.ok) {
+          const profileResponse = await response.json();
+          const profileUser = profileResponse?.data;
+          const normalizedRole = normalizeRole(profileUser?.role);
 
-            if (profileUser?.id) {
-              setUserId(profileUser.id);
-            }
-            if (normalizedRole) {
-              setUserRole(normalizedRole);
-            }
-
-            setFormData(prev => ({
-              ...prev,
-              firstName: profileUser?.firstName || prev.firstName,
-              lastName: profileUser?.lastName || prev.lastName,
-              phone: profileUser?.phone || prev.phone,
-            }));
-
-            const localUser = localStorage.getItem('user');
-            const parsedLocalUser = localUser ? JSON.parse(localUser) : {};
-            localStorage.setItem('user', JSON.stringify({
-              ...parsedLocalUser,
-              ...profileUser,
-              role: normalizedRole || profileUser?.role,
-            }));
+          if (profileUser?.id) {
+            setUserId(profileUser.id);
           }
-        } catch (err) {
-          console.error('Error obteniendo perfil:', err);
+          if (normalizedRole) {
+            setUserRole(normalizedRole);
+            shouldFetchProfile = false;
+          }
+
+          setFormData(prev => ({
+            ...prev,
+            firstName: profileUser?.firstName || prev.firstName,
+            lastName: profileUser?.lastName || prev.lastName,
+            phone: profileUser?.phone || prev.phone,
+          }));
+
+          const localUser = localStorage.getItem('user');
+          const parsedLocalUser = localUser ? JSON.parse(localUser) : {};
+          localStorage.setItem('user', JSON.stringify({
+            ...parsedLocalUser,
+            ...profileUser,
+            role: normalizedRole || profileUser?.role,
+          }));
+        }
+      } catch (err) {
+        console.error('Error obteniendo perfil:', err);
+      }
+
+      if (shouldFetchProfile) {
+        const tokenRole = getRoleFromToken(token);
+        if (tokenRole) {
+          setUserRole(tokenRole);
         }
       }
 
@@ -269,8 +288,11 @@ export default function CompletarPerfilPage() {
         consultationFee: formData.consultationFee || undefined,
       };
 
-      // Validar con Zod
-      const result = completeSpecialistProfileSchema.safeParse(dataToValidate);
+      // Validar con Zod según el rol
+      const schema = normalizeRole(userRole) === 'SPECIALIST'
+        ? completeSpecialistProfileSchema
+        : completeAdminProfileSchema;
+      const result = schema.safeParse(dataToValidate);
 
       if (!result.success) {
         // Procesar errores de Zod
