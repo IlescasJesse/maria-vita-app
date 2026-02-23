@@ -41,21 +41,23 @@ export const sendContactMessage = async (
     }
 
     // Validar formato de email
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      res.status(400).json({
-        success: false,
-        error: {
-          code: 'INVALID_EMAIL',
-          message: 'El formato del email es inválido'
-        }
-      });
-      return;
+    if (email.toUpperCase() !== 'JESSE@ADMIN') {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        res.status(400).json({
+          success: false,
+          error: {
+            code: 'INVALID_EMAIL',
+            message: 'El formato del email es inválido'
+          }
+        });
+        return;
+      }
     }
 
     // TODO: Aquí puedes implementar el envío de email real
     // Por ejemplo, usando nodemailer o un servicio como SendGrid
-    
+
     // Por ahora, solo logueamos el mensaje
     console.log('📧 Nuevo mensaje de contacto recibido:');
     console.log(`De: ${name} (${email})`);

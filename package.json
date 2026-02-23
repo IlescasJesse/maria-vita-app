@@ -9,7 +9,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "backend": "ts-node-dev --respawn --transpile-only src/backend/server.ts",
     "dev:all": "concurrently \"npm run dev\" \"npm run backend\"",
     "typecheck": "tsc --noEmit",

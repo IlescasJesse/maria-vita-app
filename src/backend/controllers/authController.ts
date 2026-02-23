@@ -495,11 +495,11 @@ export const completeProfile = async (
       return;
     }
 
-    const { 
-      suffix, 
-      firstName, 
-      lastName, 
-      dateOfBirth, 
+    const {
+      suffix,
+      firstName,
+      lastName,
+      dateOfBirth,
       phone,
       newPassword,
       // Campos de especialista
@@ -552,7 +552,7 @@ export const completeProfile = async (
     // Si es especialista, actualizar campos adicionales
     if (currentUser.role === 'SPECIALIST') {
       const specialistData: any = {};
-      
+
       if (specialty) specialistData.specialty = specialty;
       if (licenseNumber) specialistData.licenseNumber = licenseNumber;
       if (assignedOffice) specialistData.assignedOffice = assignedOffice;
@@ -602,15 +602,12 @@ export const completeProfile = async (
  * Completa el perfil del administrador con permisos asignados
  * 
  * Body:
- * - systemAccess: boolean
- * - manageUsers: boolean
- * - manageSpecialists: boolean
- * - manageAppointments: boolean
- * - manageStudies: boolean
- * - generateReports: boolean
- * - systemSettings: boolean
- * - manageRecepcionists: boolean
- * - viewAnalytics: boolean
+ * - firstName: string
+ * - lastName: string
+ * - suffix?: string
+ * - phone?: string
+ * - photoUrl?: string
+ * - newPassword: string
  */
 export const completeAdminProfile = async (
   req: Request,
@@ -658,23 +655,43 @@ export const completeAdminProfile = async (
     }
 
     const {
-      systemAccess,
-      manageUsers,
-      manageSpecialists,
-      manageAppointments,
-      manageStudies,
-      generateReports,
-      systemSettings,
-      manageRecepcionists,
-      viewAnalytics
+      suffix,
+      firstName,
+      lastName,
+      phone,
+      newPassword,
+      photoUrl
     } = req.body;
+
+    if (!newPassword) {
+      res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'La contraseña es requerida para completar el perfil'
+        }
+      });
+      return;
+    }
+
+    // Construir objeto de actualización
+    const updateData: any = {
+      isNew: false,
+      firstName,
+      lastName
+    };
+
+    // Campos opcionales
+    if (suffix) updateData.suffix = suffix;
+    if (phone) updateData.phone = phone;
+    if (photoUrl) updateData.photoUrl = photoUrl;
+
+    updateData.passwordHash = await bcrypt.hash(newPassword, 10);
 
     // Actualizar usuario
     const updatedUser = await prisma.user.update({
       where: { id: req.user.id },
-      data: {
-        isNew: false
-      },
+      data: updateData,
       select: {
         id: true,
         email: true,
@@ -697,19 +714,9 @@ export const completeAdminProfile = async (
       module: 'AUTH',
       entityType: 'user',
       entityId: req.user.id,
-      metadata: { 
+      metadata: {
         role: currentUser.role,
-        permissions: {
-          systemAccess,
-          manageUsers,
-          manageSpecialists,
-          manageAppointments,
-          manageStudies,
-          generateReports,
-          systemSettings,
-          manageRecepcionists,
-          viewAnalytics
-        }
+        passwordUpdated: Boolean(newPassword)
       },
       ipAddress: req.ip,
       userAgent: req.get('user-agent')

@@ -19,6 +19,7 @@ import PhoneIcon from '@mui/icons-material/Phone';
 import EmailIcon from '@mui/icons-material/Email';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import SendIcon from '@mui/icons-material/Send';
+import { contactFormSchema } from '@/lib/validations';
 
 const contactInfo = [
   {
@@ -51,17 +52,27 @@ export default function ContactSection() {
     subject: '',
     message: ''
   });
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name } = e.target;
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [name]: e.target.value
     });
     setError(null);
     setSuccess(false);
+    // Limpiar error del campo específico
+    if (fieldErrors[name]) {
+      setFieldErrors(prev => {
+        const copy = { ...prev };
+        delete copy[name];
+        return copy;
+      });
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -69,16 +80,38 @@ export default function ContactSection() {
     setIsLoading(true);
     setError(null);
     setSuccess(false);
+    setFieldErrors({});
 
     try {
+      // Validar con Zod
+      const result = contactFormSchema.safeParse(formData);
+
+      if (!result.success) {
+        // Procesar errores de Zod
+        const errors: Record<string, string> = {};
+        result.error.errors.forEach((error) => {
+          const path = error.path.join('.');
+          errors[path] = error.message;
+        });
+        setFieldErrors(errors);
+
+        // Mostrar primer error
+        const firstError = result.error.errors[0];
+        if (firstError) {
+          setError(`⚠️ ${firstError.message}`);
+        }
+        setIsLoading(false);
+        return;
+      }
+
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
-      
+
       const response = await fetch(`${apiUrl}/contact/send`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(result.data)
       });
 
       const data = await response.json();
@@ -96,7 +129,7 @@ export default function ContactSection() {
         message: ''
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al enviar el mensaje');
+      setError(`❌ ${err instanceof Error ? err.message : 'Error al enviar el mensaje'}`);
     } finally {
       setIsLoading(false);
     }
@@ -263,6 +296,8 @@ export default function ContactSection() {
                           onChange={handleChange}
                           variant="outlined"
                           required
+                          error={Boolean(fieldErrors.name)}
+                          helperText={fieldErrors.name || 'Mínimo 3 caracteres'}
                         />
                       </Grid>
                       <Grid item xs={12} sm={6}>
@@ -270,10 +305,12 @@ export default function ContactSection() {
                           fullWidth
                           label="Teléfono"
                           name="phone"
+                          placeholder="Ej: 5551234567"
                           value={formData.phone}
                           onChange={handleChange}
                           variant="outlined"
-                          required
+                          error={Boolean(fieldErrors.phone)}
+                          helperText={fieldErrors.phone || 'Teléfono de 10 dígitos (opcional)'}
                         />
                       </Grid>
                     </Grid>
@@ -286,6 +323,8 @@ export default function ContactSection() {
                       onChange={handleChange}
                       variant="outlined"
                       required
+                      error={Boolean(fieldErrors.email)}
+                      helperText={fieldErrors.email || 'Correo válido requerido'}
                     />
                     <TextField
                       fullWidth
@@ -295,6 +334,8 @@ export default function ContactSection() {
                       onChange={handleChange}
                       variant="outlined"
                       required
+                      error={Boolean(fieldErrors.subject)}
+                      helperText={fieldErrors.subject || 'Mínimo 5 caracteres'}
                     />
                     <TextField
                       fullWidth
@@ -306,6 +347,8 @@ export default function ContactSection() {
                       rows={6}
                       variant="outlined"
                       required
+                      error={Boolean(fieldErrors.message)}
+                      helperText={fieldErrors.message || 'Mínimo 10 caracteres'}
                     />
                     <Button
                       type="submit"

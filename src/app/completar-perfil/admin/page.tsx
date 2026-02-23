@@ -27,8 +27,10 @@ import {
   BarChart as BarChartIcon,
   CheckCircle as CheckCircleIcon,
   PhotoCamera as PhotoCameraIcon,
+  Lock as LockIconComponent,
 } from '@mui/icons-material';
 import ClinicAvatar from '@/components/ClinicAvatar';
+import { completeAdminProfileSchema } from '@/lib/validations';
 
 interface AdminProfileFormData {
   suffix?: string;
@@ -36,6 +38,8 @@ interface AdminProfileFormData {
   lastName: string;
   phone?: string;
   photoUrl?: string;
+  newPassword?: string;
+  confirmPassword?: string;
 }
 
 const suffixes = ['Dr.', 'Dra.', 'Lic.', 'Ing.', 'Mtro.', 'Mtra.', 'C.P.', 'Enf.'];
@@ -57,6 +61,8 @@ export default function CompleteAdminProfilePage() {
     lastName: '',
     phone: '',
     photoUrl: '',
+    newPassword: '',
+    confirmPassword: '',
   });
 
   useEffect(() => {
@@ -104,7 +110,7 @@ export default function CompleteAdminProfilePage() {
       const errors: Record<string, string> = {};
       if (!formData.firstName.trim()) errors.firstName = 'Requerido';
       if (!formData.lastName.trim()) errors.lastName = 'Requerido';
-      
+
       if (Object.keys(errors).length > 0) {
         setFieldErrors(errors);
         return;
@@ -185,9 +191,40 @@ export default function CompleteAdminProfilePage() {
   const handleSubmit = async () => {
     setSubmitLoading(true);
     setError('');
+    setFieldErrors({});
 
     try {
+      // Validar con Zod
+      const result = completeAdminProfileSchema.safeParse(formData);
+
+      if (!result.success) {
+        // Procesar errores de Zod
+        const errors: Record<string, string> = {};
+        result.error.errors.forEach((error) => {
+          const path = error.path.join('.');
+          errors[path] = error.message;
+        });
+        setFieldErrors(errors);
+
+        // Mostrar primer error en el alert
+        const firstError = result.error.errors[0];
+        if (firstError) {
+          setError(`⚠️ ${firstError.path.join('.')}: ${firstError.message}`);
+        }
+        setSubmitLoading(false);
+        return;
+      }
+
       const token = localStorage.getItem('token');
+      const { confirmPassword, ...dataToSend } = result.data;
+      const cleanedDataToSend = Object.fromEntries(
+        Object.entries(dataToSend).filter(([, value]) => {
+          if (typeof value === 'string') {
+            return value.trim() !== '';
+          }
+          return value !== undefined && value !== null;
+        })
+      );
 
       const response = await fetch('/api/auth/complete-admin-profile', {
         method: 'POST',
@@ -195,28 +232,38 @@ export default function CompleteAdminProfilePage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(cleanedDataToSend),
       });
 
-      const result = await response.json();
+      const respData = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error?.message || 'Error al guardar');
+        if (Array.isArray(respData?.error?.details)) {
+          const backendErrors: Record<string, string> = {};
+          respData.error.details.forEach((detail: { field?: string; message?: string }) => {
+            if (detail?.field && detail?.message && !backendErrors[detail.field]) {
+              backendErrors[detail.field] = detail.message;
+            }
+          });
+          if (Object.keys(backendErrors).length > 0) {
+            setFieldErrors(backendErrors);
+          }
+        }
+        throw new Error(respData.error?.message || 'Error al guardar');
       }
 
-      setSuccess('Perfil completado exitosamente');
-      
-      if (result.data) {
+      setSuccess('✓ Perfil completado exitosamente');
+
+      if (respData.data) {
         const updatedUser = {
-          id: result.data.id,
-          email: result.data.email,
-          firstName: result.data.firstName,
-          lastName: result.data.lastName,
-          role: result.data.role,
-          phone: result.data.phone,
+          id: respData.data.id,
+          email: respData.data.email,
+          firstName: respData.data.firstName,
+          lastName: respData.data.lastName,
+          role: respData.data.role,
+          phone: respData.data.phone,
           isActive: true,
           isNew: false,
-          isAdmin: result.data.isAdmin,
         };
         localStorage.setItem('user', JSON.stringify(updatedUser));
         window.dispatchEvent(new Event('user-updated'));
@@ -224,7 +271,7 @@ export default function CompleteAdminProfilePage() {
 
       setActiveStep(3);
     } catch (err: any) {
-      setError(err.message);
+      setError(`❌ ${err.message || 'Error al completar el perfil'}`);
     } finally {
       setSubmitLoading(false);
     }
@@ -304,10 +351,55 @@ export default function CompleteAdminProfilePage() {
                 <TextField
                   fullWidth
                   name="phone"
-                  label="Telefono"
+                  label="Teléfono"
                   type="tel"
+                  placeholder="Ej: 5551234567"
                   value={formData.phone || ''}
                   onChange={handleInputChange}
+                  error={Boolean(fieldErrors.phone)}
+                  helperText={fieldErrors.phone || 'Teléfono de 10 dígitos (opcional)'}
+                />
+              </Grid>
+
+              {/* Sección de Contraseña */}
+              <Grid item xs={12}>
+                <Box display="flex" alignItems="center" sx={{ mt: 2, mb: 1 }}>
+                  <LockIconComponent sx={{ mr: 1, color: 'primary.main' }} />
+                  <Typography variant="h6" color="primary">
+                    Establece tu Contraseña (Obligatoria)
+                  </Typography>
+                </Box>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Por seguridad y privacidad, debes establecer una nueva contraseña. Debe contener mayúsculas,
+                  minúsculas, números y un carácter especial (!@#$%^&*).
+                </Typography>
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  required
+                  type="password"
+                  name="newPassword"
+                  label="Nueva Contraseña"
+                  value={formData.newPassword || ''}
+                  onChange={handleInputChange}
+                  error={Boolean(fieldErrors.newPassword)}
+                  helperText={fieldErrors.newPassword || 'Requerida'}
+                />
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  required
+                  type="password"
+                  name="confirmPassword"
+                  label="Confirmar Contraseña"
+                  value={formData.confirmPassword || ''}
+                  onChange={handleInputChange}
+                  error={Boolean(fieldErrors.confirmPassword)}
+                  helperText={fieldErrors.confirmPassword || 'Requerida'}
                 />
               </Grid>
             </Grid>
@@ -439,7 +531,7 @@ export default function CompleteAdminProfilePage() {
                         1. Gestionar Usuarios
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        En el dashboard, ve a "Usuarios" - Crea, edita y elimina usuarios. Al crear, asigna permisos.
+                        En el dashboard, ve a &quot;Usuarios&quot; - Crea, edita y elimina usuarios. Al crear, asigna permisos.
                       </Typography>
                     </Box>
                   </Box>

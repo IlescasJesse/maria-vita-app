@@ -64,17 +64,21 @@ export const getAllUsers = async (
       orderBy: { createdAt: 'desc' }
     });
 
-    // Registrar actividad
-    await ActivityLog.create({
-      userId: req.user.id,
-      userEmail: req.user.email,
-      action: 'LIST',
-      module: 'USERS',
-      entityType: 'user',
-      metadata: { count: users.length },
-      ipAddress: req.ip,
-      userAgent: req.get('user-agent')
-    });
+    // Registrar actividad (no bloquear respuesta si MongoDB falla)
+    try {
+      await ActivityLog.create({
+        userId: req.user.id,
+        userEmail: req.user.email,
+        action: 'LIST',
+        module: 'USERS',
+        entityType: 'user',
+        metadata: { count: users.length },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent')
+      });
+    } catch (logError) {
+      console.warn('ActivityLog LIST failed (non-blocking):', logError);
+    }
 
     successResponse(res, users);
   } catch (error) {
@@ -177,22 +181,26 @@ export const createUser = async (
       });
     }
 
-    // Registrar actividad
-    await ActivityLog.create({
-      userId: req.user.id,
-      userEmail: req.user.email,
-      action: 'CREATE',
-      module: 'USERS',
-      entityType: 'user',
-      entityId: newUser.id,
-      metadata: { 
-        email: newUser.email, 
-        role: newUser.role,
-        createdBy: req.user.email 
-      },
-      ipAddress: req.ip,
-      userAgent: req.get('user-agent')
-    });
+    // Registrar actividad (no bloquear respuesta si MongoDB falla)
+    try {
+      await ActivityLog.create({
+        userId: req.user.id,
+        userEmail: req.user.email,
+        action: 'CREATE',
+        module: 'USERS',
+        entityType: 'user',
+        entityId: newUser.id,
+        metadata: {
+          email: newUser.email,
+          role: newUser.role,
+          createdBy: req.user.email
+        },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent')
+      });
+    } catch (logError) {
+      console.warn('ActivityLog CREATE failed (non-blocking):', logError);
+    }
 
     createdResponse(res, newUser, 'Usuario creado exitosamente');
   } catch (error) {
@@ -283,21 +291,25 @@ export const updateUser = async (
       }
     });
 
-    // Registrar actividad
-    await ActivityLog.create({
-      userId: req.user.id,
-      userEmail: req.user.email,
-      action: 'UPDATE',
-      module: 'USERS',
-      entityType: 'user',
-      entityId: id,
-      metadata: { 
-        updatedFields: Object.keys(updateData),
-        updatedBy: req.user.email 
-      },
-      ipAddress: req.ip,
-      userAgent: req.get('user-agent')
-    });
+    // Registrar actividad (no bloquear respuesta si MongoDB falla)
+    try {
+      await ActivityLog.create({
+        userId: req.user.id,
+        userEmail: req.user.email,
+        action: 'UPDATE',
+        module: 'USERS',
+        entityType: 'user',
+        entityId: id,
+        metadata: {
+          updatedFields: Object.keys(updateData),
+          updatedBy: req.user.email
+        },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent')
+      });
+    } catch (logError) {
+      console.warn('ActivityLog UPDATE failed (non-blocking):', logError);
+    }
 
     updatedResponse(res, updatedUser, 'Usuario actualizado exitosamente');
   } catch (error) {
@@ -360,21 +372,25 @@ export const deleteUser = async (
       where: { id }
     });
 
-    // Registrar actividad
-    await ActivityLog.create({
-      userId: req.user.id,
-      userEmail: req.user.email,
-      action: 'DELETE',
-      module: 'USERS',
-      entityType: 'user',
-      entityId: id,
-      metadata: { 
-        deletedUser: user.email,
-        deletedBy: req.user.email 
-      },
-      ipAddress: req.ip,
-      userAgent: req.get('user-agent')
-    });
+    // Registrar actividad (no bloquear respuesta si MongoDB falla)
+    try {
+      await ActivityLog.create({
+        userId: req.user.id,
+        userEmail: req.user.email,
+        action: 'DELETE',
+        module: 'USERS',
+        entityType: 'user',
+        entityId: id,
+        metadata: {
+          deletedUser: user.email,
+          deletedBy: req.user.email
+        },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent')
+      });
+    } catch (logError) {
+      console.warn('ActivityLog DELETE failed (non-blocking):', logError);
+    }
 
     deletedResponse(res, 'Usuario eliminado exitosamente');
   } catch (error) {

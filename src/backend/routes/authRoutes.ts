@@ -237,7 +237,7 @@ const completeProfileValidation = [
     .matches(/\d/).withMessage('La contraseña debe contener al menos un número')
     .matches(/[!@#$%^&*]/).withMessage('La contraseña debe contener al menos un carácter especial (!@#$%^&*)'),
   body('phone')
-    .optional()
+    .optional({ checkFalsy: true })
     .isNumeric().withMessage('El teléfono debe ser numérico'),
   validate
 ];
@@ -246,22 +246,18 @@ router.post('/complete-profile', authenticate, completeProfileValidation, comple
 
 /**
  * POST /api/auth/complete-admin-profile
- * Permite a administradores completar su perfil y asignar permisos
+ * Permite a administradores completar su perfil
  * 
  * Headers:
  * - Authorization: Bearer {token}
  * 
  * Body:
- * - systemAccess: boolean
- * - manageUsers: boolean
- * - manageSpecialists: boolean
- * - manageAppointments: boolean
- * - manageStudies: boolean
- * - generateReports: boolean
- * - systemSettings: boolean
- * - manageRecepcionists: boolean
- * - viewAnalytics: boolean
- * - department?: string
+ * - firstName: string
+ * - lastName: string
+ * - suffix?: string
+ * - phone?: string
+ * - photoUrl?: string
+ * - newPassword: string (8+ caracteres, mayúsculas, minúsculas, números, símbolos)
  * 
  * Response:
  * - 200: Perfil de administrador completado
@@ -269,24 +265,31 @@ router.post('/complete-profile', authenticate, completeProfileValidation, comple
  * - 403: Usuario no es administrador
  */
 const completeAdminProfileValidation = [
-  body('systemAccess')
-    .isBoolean().withMessage('systemAccess debe ser boolean'),
-  body('manageUsers')
-    .isBoolean().withMessage('manageUsers debe ser boolean'),
-  body('manageSpecialists')
-    .isBoolean().withMessage('manageSpecialists debe ser boolean'),
-  body('manageAppointments')
-    .isBoolean().withMessage('manageAppointments debe ser boolean'),
-  body('manageStudies')
-    .isBoolean().withMessage('manageStudies debe ser boolean'),
-  body('generateReports')
-    .isBoolean().withMessage('generateReports debe ser boolean'),
-  body('systemSettings')
-    .isBoolean().withMessage('systemSettings debe ser boolean'),
-  body('manageRecepcionists')
-    .isBoolean().withMessage('manageRecepcionists debe ser boolean'),
-  body('viewAnalytics')
-    .isBoolean().withMessage('viewAnalytics debe ser boolean'),
+  body('firstName')
+    .trim()
+    .notEmpty().withMessage('El nombre es requerido')
+    .isLength({ min: 2, max: 100 }).withMessage('El nombre debe tener entre 2 y 100 caracteres'),
+  body('lastName')
+    .trim()
+    .notEmpty().withMessage('Los apellidos son requeridos')
+    .isLength({ min: 2, max: 100 }).withMessage('Los apellidos deben tener entre 2 y 100 caracteres'),
+  body('suffix')
+    .optional({ checkFalsy: true })
+    .trim()
+    .isLength({ max: 50 }).withMessage('Sufijo muy largo'),
+  body('phone')
+    .optional({ checkFalsy: true })
+    .matches(/^\d{10}$/).withMessage('Teléfono debe tener exactamente 10 dígitos'),
+  body('photoUrl')
+    .optional({ checkFalsy: true })
+    .isURL().withMessage('URL de foto inválida'),
+  body('newPassword')
+    .notEmpty().withMessage('La contraseña es requerida')
+    .isLength({ min: 8 }).withMessage('La contraseña debe tener al menos 8 caracteres')
+    .matches(/[A-Z]/).withMessage('La contraseña debe contener al menos una mayúscula')
+    .matches(/[a-z]/).withMessage('La contraseña debe contener al menos una minúscula')
+    .matches(/\d/).withMessage('La contraseña debe contener al menos un número')
+    .matches(/[!@#$%^&*]/).withMessage('La contraseña debe contener al menos un carácter especial (!@#$%^&*)'),
   validate
 ];
 

@@ -22,6 +22,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import PersonIcon from '@mui/icons-material/Person';
 import LockIcon from '@mui/icons-material/Lock';
+import { loginSchema } from '@/lib/validations';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -29,31 +30,63 @@ export default function LoginPage() {
     email: '',
     password: ''
   });
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [name]: value
     });
     setError(null);
+    // Limpiar error del campo específico
+    if (fieldErrors[name]) {
+      setFieldErrors(prev => {
+        const copy = { ...prev };
+        delete copy[name];
+        return copy;
+      });
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
+    setFieldErrors({});
 
     try {
+      // Validar con Zod
+      const result = loginSchema.safeParse(formData);
+
+      if (!result.success) {
+        // Procesar errores de Zod
+        const errors: Record<string, string> = {};
+        result.error.errors.forEach((error) => {
+          const path = error.path.join('.');
+          errors[path] = error.message;
+        });
+        setFieldErrors(errors);
+
+        // Mostrar primer error
+        const firstError = result.error.errors[0];
+        if (firstError) {
+          setError(`⚠️ ${firstError.message}`);
+        }
+        setIsLoading(false);
+        return;
+      }
+
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
       const response = await fetch(`${apiUrl}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(result.data)
       });
 
       const data = await response.json();
@@ -90,7 +123,7 @@ export default function LoginPage() {
         router.push('/dashboard');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al iniciar sesión');
+      setError(`❌ ${err instanceof Error ? err.message : 'Error al iniciar sesión'}`);
     } finally {
       setIsLoading(false);
     }
@@ -174,6 +207,8 @@ export default function LoginPage() {
                 required
                 autoComplete="email"
                 autoFocus
+                error={Boolean(fieldErrors.email)}
+                helperText={fieldErrors.email || ''}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -197,6 +232,8 @@ export default function LoginPage() {
                 onChange={handleChange}
                 required
                 autoComplete="current-password"
+                error={Boolean(fieldErrors.password)}
+                helperText={fieldErrors.password || ''}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">

@@ -60,7 +60,6 @@ npm run migrate
 **Tiempo estimado**: 1 minuto
 
 ### Paso 4: (Opcional) Poblar con Datos de Prueba
-
 \`\`\`bash
 npm run seed
 \`\`\`

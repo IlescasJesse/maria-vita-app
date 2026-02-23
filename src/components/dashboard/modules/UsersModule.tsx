@@ -41,6 +41,7 @@ import {
   Delete as DeleteIcon,
   PersonAdd as PersonAddIcon,
 } from '@mui/icons-material';
+import { useOptimisticMutation } from '@/hooks/useOptimisticMutation';
 
 
 interface User {
@@ -76,7 +77,7 @@ const adminPermissions = [
 const renderEmailWithStyle = (email: string) => {
   const parts = email.split('@');
   if (parts.length !== 2) return <span>{email}</span>;
-  
+
   return (
     <Box component="span">
       <Box component="span" sx={{ fontWeight: 500, color: 'text.primary' }}>
@@ -114,7 +115,7 @@ export default function UsersModule() {
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  
+
   const [formData, setFormData] = useState({
     email: '',
     role: 'PATIENT',
@@ -128,6 +129,7 @@ export default function UsersModule() {
   });
 
   const [emailLocalPart, setEmailLocalPart] = useState('');
+  const { runOptimistic } = useOptimisticMutation();
 
   const validateField = useCallback((field: string, value: string) => {
     switch (field) {
@@ -150,7 +152,7 @@ export default function UsersModule() {
         return value.length >= 6 ? '' : 'La contraseña debe tener al menos 6 caracteres';
       case 'firstName': {
         const trimmed = value.trim();
-        if (!trimmed) return '';
+        if (!trimmed) return 'El nombre es requerido';
         return trimmed.length >= 2 ? '' : 'El nombre debe tener al menos 2 caracteres';
       }
       case 'lastName':
@@ -308,7 +310,10 @@ export default function UsersModule() {
         nextFieldErrors.tempPassword = 'La contraseña temporal es requerida';
       }
 
-      if (formData.firstName && formData.firstName.trim().length < 2) {
+      const trimmedFirstName = formData.firstName.trim();
+      if (!trimmedFirstName) {
+        nextFieldErrors.firstName = 'El nombre es requerido';
+      } else if (trimmedFirstName.length < 2) {
         nextFieldErrors.firstName = 'El nombre debe tener al menos 2 caracteres';
       }
 
@@ -329,7 +334,7 @@ export default function UsersModule() {
       const body: any = {
         role: formData.role,
         suffix: formData.suffix || null,
-        firstName: formData.firstName || '',
+        firstName: trimmedFirstName,
         lastName: formData.lastName || '',
         phone: formData.phone || '',
         isActive: formData.isActive,
@@ -350,24 +355,157 @@ export default function UsersModule() {
         body.adminPermissions = formData.adminPermissions;
       }
 
-      const response = await fetch(endpoint, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(body),
-      });
+      if (!editingUser) {
+        const optimisticId = `temp-${Date.now()}`;
+        const optimisticUser: User = {
+          id: optimisticId,
+          email: String(finalEmail),
+          role: formData.role,
+          suffix: formData.suffix || '',
+          firstName: trimmedFirstName,
+          lastName: formData.lastName || '',
+          phone: formData.phone || '',
+          isActive: formData.isActive,
+          isNew: true,
+          createdAt: new Date().toISOString(),
+        };
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || errorData.message || 'Error al guardar usuario');
+        handleCloseDialog();
+
+        const optimisticResult = await runOptimistic({
+          applyOptimistic: () => {
+            setUsers((prev) => [optimisticUser, ...prev]);
+            return { optimisticId };
+          },
+          rollback: (context) => {
+            setUsers((prev) => prev.filter((user) => user.id !== context.optimisticId));
+          },
+          mutation: async () => {
+            const response = await fetch(endpoint, {
+              method,
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify(body),
+            });
+
+            const responseData = await response.json();
+
+            if (!response.ok) {
+              if (Array.isArray(responseData?.error?.details)) {
+                const backendFieldErrors: Record<string, string> = {};
+                for (const detail of responseData.error.details) {
+                  if (detail?.field && detail?.message && !backendFieldErrors[detail.field]) {
+                    backendFieldErrors[detail.field] = detail.message;
+                  }
+                }
+                if (Object.keys(backendFieldErrors).length > 0) {
+                  setFieldErrors(backendFieldErrors);
+                }
+              }
+
+              throw new Error(responseData.error?.message || responseData.message || 'Error al guardar usuario');
+            }
+
+            return responseData;
+          },
+          onSuccess: (responseData, context) => {
+            const createdUser = responseData?.data;
+            if (createdUser?.id) {
+              setUsers((prev) => prev.map((user) => (user.id === context.optimisticId ? createdUser : user)));
+            }
+          },
+          onError: (submitError) => {
+            handleOpenDialog();
+            setError(submitError instanceof Error ? submitError.message : 'Error al guardar usuario');
+          },
+        });
+
+        if (!optimisticResult.ok) {
+          return;
+        }
+
+        setSuccess('Usuario creado exitosamente');
+        loadUsers();
+        setTimeout(() => setSuccess(''), 5000);
+        return;
       }
 
-      setSuccess(editingUser ? 'Usuario actualizado exitosamente' : 'Usuario creado exitosamente');
+      const existingUser = users.find((user) => user.id === editingUser.id);
+      if (!existingUser) {
+        throw new Error('Usuario no encontrado para actualizar');
+      }
+
+      const optimisticUpdatedUser: User = {
+        ...existingUser,
+        role: formData.role,
+        suffix: formData.suffix || '',
+        firstName: trimmedFirstName,
+        lastName: formData.lastName || '',
+        phone: formData.phone || '',
+        isActive: formData.isActive,
+      };
+
       handleCloseDialog();
+
+      const optimisticEditResult = await runOptimistic({
+        applyOptimistic: () => {
+          setUsers((prev) => prev.map((user) => (user.id === editingUser.id ? optimisticUpdatedUser : user)));
+          return { previousUser: existingUser, userId: editingUser.id };
+        },
+        rollback: (context) => {
+          setUsers((prev) => prev.map((user) => (user.id === context.userId ? context.previousUser : user)));
+        },
+        mutation: async () => {
+          const response = await fetch(endpoint, {
+            method,
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(body),
+          });
+
+          const responseData = await response.json();
+
+          if (!response.ok) {
+            if (Array.isArray(responseData?.error?.details)) {
+              const backendFieldErrors: Record<string, string> = {};
+              for (const detail of responseData.error.details) {
+                if (detail?.field && detail?.message && !backendFieldErrors[detail.field]) {
+                  backendFieldErrors[detail.field] = detail.message;
+                }
+              }
+              if (Object.keys(backendFieldErrors).length > 0) {
+                setFieldErrors(backendFieldErrors);
+              }
+            }
+
+            throw new Error(responseData.error?.message || responseData.message || 'Error al guardar usuario');
+          }
+
+          return responseData;
+        },
+        onSuccess: (responseData, context) => {
+          const updatedUser = responseData?.data;
+          if (updatedUser?.id) {
+            setUsers((prev) => prev.map((user) => (user.id === context.userId ? updatedUser : user)));
+          }
+        },
+        onError: (submitError, context) => {
+          handleOpenDialog(context.previousUser);
+          setError(submitError instanceof Error ? submitError.message : 'Error al guardar usuario');
+        },
+      });
+
+      if (!optimisticEditResult.ok) {
+        return;
+      }
+
+      setSuccess('Usuario actualizado exitosamente');
       loadUsers();
-      
+
       setTimeout(() => setSuccess(''), 5000);
     } catch (err: any) {
       setError(err.message || 'Error al guardar usuario');
@@ -380,19 +518,55 @@ export default function UsersModule() {
     try {
       setDeleting(true);
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/users/${userId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
+      const previousUsers = [...users];
+      const deletedUser = previousUsers.find((user) => user.id === userId) || null;
+      const deletedIndex = previousUsers.findIndex((user) => user.id === userId);
+
+      const optimisticDeleteResult = await runOptimistic({
+        applyOptimistic: () => {
+          setOpenDeleteDialog(false);
+          setUserToDelete(null);
+          setUsers((prev) => prev.filter((user) => user.id !== userId));
+          return { deletedUser, deletedIndex };
+        },
+        rollback: (context) => {
+          const userToRestore = context.deletedUser;
+
+          if (!userToRestore || context.deletedIndex < 0) {
+            setUsers(previousUsers);
+            return;
+          }
+
+          setUsers((prev) => {
+            const restored = [...prev];
+            restored.splice(context.deletedIndex, 0, userToRestore);
+            return restored;
+          });
+        },
+        mutation: async () => {
+          const response = await fetch(`/api/users/${userId}`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${token}` },
+          });
+
+          const responseData = await response.json().catch(() => ({}));
+
+          if (!response.ok) {
+            throw new Error(responseData.error?.message || responseData.message || 'Error al eliminar usuario');
+          }
+
+          return responseData;
+        },
+        onError: (deleteError) => {
+          setError(deleteError instanceof Error ? deleteError.message : 'Error al eliminar usuario');
+        },
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || errorData.message || 'Error al eliminar usuario');
+      if (!optimisticDeleteResult.ok) {
+        return;
       }
 
       setSuccess('Usuario eliminado exitosamente');
-      setOpenDeleteDialog(false);
-      setUserToDelete(null);
       loadUsers();
       setTimeout(() => setSuccess(''), 5000);
     } catch (err: any) {
@@ -541,8 +715,8 @@ export default function UsersModule() {
           {editingUser ? 'Editar Usuario' : 'Crear Nuevo Usuario'}
         </DialogTitle>
         <DialogContent>
-                    {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
-                    {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>}
+          {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
+          {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>}
           <Box sx={{ pt: 3 }}>
             <Grid container spacing={3}>
               <Grid item xs={12}>
@@ -622,10 +796,10 @@ export default function UsersModule() {
                     {fieldErrors.email
                       ? fieldErrors.email
                       : !editingUser && !emailLocalPart.includes('@')
-                      ? 'El dominio @maria-vita.mx se agregará automáticamente (excepto para @ADMIN)'
-                      : editingUser
-                      ? 'No se puede modificar el email de usuarios existentes'
-                      : ''}
+                        ? 'El dominio @maria-vita.mx se agregará automáticamente (excepto para @ADMIN)'
+                        : editingUser
+                          ? 'No se puede modificar el email de usuarios existentes'
+                          : ''}
                   </FormHelperText>
                 </Box>
               </Grid>
@@ -717,12 +891,13 @@ export default function UsersModule() {
               <Grid item xs={12} sm={8}>
                 <TextField
                   fullWidth
+                  required
                   label="Nombre(s)"
                   value={formData.firstName}
                   onChange={(e) => handleChange('firstName', e.target.value)}
                   onBlur={(e) => handleBlur('firstName', e.target.value)}
                   error={Boolean(fieldErrors.firstName)}
-                  helperText={fieldErrors.firstName || 'Opcional - puede completarlo después'}
+                  helperText={fieldErrors.firstName || 'Requerido'}
                   margin="normal"
                 />
               </Grid>
@@ -790,8 +965,8 @@ export default function UsersModule() {
       </Dialog>
 
       {/* Diálogo de Confirmación de Eliminación */}
-      <Dialog 
-        open={openDeleteDialog} 
+      <Dialog
+        open={openDeleteDialog}
         onClose={handleCloseDeleteDialog}
         maxWidth="xs"
         fullWidth
@@ -838,7 +1013,7 @@ export default function UsersModule() {
 
       {/* Backdrop para operaciones de guardado/eliminación */}
       <Backdrop
-        sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }}
+        sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.modal + 1 }}
         open={saving || deleting}
       >
         <Box sx={{ textAlign: 'center' }}>

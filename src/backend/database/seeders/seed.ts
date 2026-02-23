@@ -13,6 +13,17 @@ async function main() {
 
   try {
     // ============================================
+    // VERIFICAR CONEXIÓN A BASE DE DATOS
+    // ============================================
+    try {
+      await prisma.$connect();
+      console.log('🔌 Database connection established\n');
+    } catch (connectionError: any) {
+      console.error('❌ Cannot connect to MySQL. Verify that MySQL is running on localhost:3306 and DATABASE_URL is correct.');
+      throw connectionError;
+    }
+
+    // ============================================
     // LIMPIAR DATOS EXISTENTES
     // ============================================
     console.log('🧹 Cleaning existing data...');
@@ -27,11 +38,11 @@ async function main() {
     // USUARIOS
     // ============================================
     console.log('👥 Creating users...');
-    
+
     // Contraseñas para diferentes usuarios
     const superAdminPassword = 'Ajetreo1512!';
     const doctorPassword = 'Doctor2026!';
-    
+
     const hashedSuperAdminPassword = await bcrypt.hash(superAdminPassword, 10);
     const hashedDoctorPassword = await bcrypt.hash(doctorPassword, 10);
 
@@ -80,27 +91,30 @@ async function main() {
     ];
 
     const specialists = [];
-    
+
     for (let i = 0; i < medicosData.length; i++) {
       const medico = medicosData[i]!; // TypeScript non-null assertion
-      const nameParts = medico.name.split(' ');
-      const suffix = nameParts[0]; // "DR." o "DRA."
-      const firstName = nameParts.slice(0, 2).join(' '); // "DR. NOMBRE"
-      const lastName = nameParts.slice(2).join(' ') || 'ESPECIALISTA';
-      
+      const nameParts = medico.name.trim().split(/\s+/);
+      const hasTitle = /^DRA?\.?$/i.test(nameParts[0] || '');
+      const suffix = hasTitle ? nameParts[0]!.toUpperCase().replace(/\.$/, '') + '.' : 'Dr.';
+      const cleanNameParts = hasTitle ? nameParts.slice(1) : nameParts;
+      const firstName = cleanNameParts.slice(0, 2).join(' ') || 'ESPECIALISTA';
+      const lastName = cleanNameParts.slice(2).join(' ') || 'ESPECIALISTA';
+      const fullName = `${firstName} ${lastName}`.trim();
+
       // Generar email único basado en el nombre
-      const emailName = medico.name
+      const emailName = fullName
         .toLowerCase()
-        .replace(/dr\.|dra\./g, '')
+        .replace(/\bdr\.?\b|\bdra\.?\b/gi, '')
         .trim()
         .split(' ')
         .join('.');
-      
+
       // Generar fecha de nacimiento aleatoria entre 1960-1985
       const birthYear = 1960 + Math.floor(i * 1.5);
       const birthMonth = (i % 12) + 1;
       const birthDay = ((i * 7) % 28) + 1;
-      
+
       const specialistUser = await prisma.user.create({
         data: {
           email: `${emailName}@maria-vita.mx`,
@@ -119,13 +133,13 @@ async function main() {
       const specialist = await prisma.specialist.create({
         data: {
           userId: specialistUser.id,
-          fullName: medico.name,
+          fullName,
           specialty: medico.specialty,
           licenseNumber: `LIC-MV-${String(i + 1).padStart(3, '0')}`,
           assignedOffice: medico.office,
-          consultationFee: medico.specialty.includes('GENERAL') || medico.specialty.includes('FAMILIAR') ? 800.0 : 
-                          medico.specialty.includes('CIRUGIA') || medico.specialty.includes('CARDIO') ? 2500.0 :
-                          medico.specialty.includes('IMAGEN') || medico.specialty.includes('RADIO') ? 2000.0 : 1500.0,
+          consultationFee: medico.specialty.includes('GENERAL') || medico.specialty.includes('FAMILIAR') ? 800.0 :
+            medico.specialty.includes('CIRUGIA') || medico.specialty.includes('CARDIO') ? 2500.0 :
+              medico.specialty.includes('IMAGEN') || medico.specialty.includes('RADIO') ? 2000.0 : 1500.0,
           biography: `Especialista en ${medico.specialty}`,
           yearsOfExperience: 5 + Math.floor(i * 1.2),
           isAvailable: true,

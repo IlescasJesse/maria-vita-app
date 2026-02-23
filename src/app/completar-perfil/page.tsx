@@ -29,6 +29,7 @@ import {
   Favorite as FavoriteIcon,
   Lock as LockIcon,
 } from '@mui/icons-material';
+import { completeSpecialistProfileSchema } from '@/lib/validations';
 
 interface ProfileFormData {
   // Datos básicos (todos los roles)
@@ -64,7 +65,8 @@ export default function CompletarPerfilPage() {
   const [activeStep, setActiveStep] = useState(0);
   const [userRole, setUserRole] = useState<string>('');
   const [userId, setUserId] = useState<string>('');
-  
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
   const [formData, setFormData] = useState<ProfileFormData>({
     firstName: '',
     lastName: '',
@@ -81,7 +83,7 @@ export default function CompletarPerfilPage() {
       router.replace('/login');
       return;
     }
-    
+
     // Cargar datos del usuario sin verificar isNew
     const userData = localStorage.getItem('user');
     if (userData) {
@@ -99,11 +101,11 @@ export default function CompletarPerfilPage() {
         console.error('Error parseando usuario:', err);
       }
     }
-    
+
     setLoading(false);
   }, [router]);
 
-  const steps = userRole === 'SPECIALIST' 
+  const steps = userRole === 'SPECIALIST'
     ? ['Bienvenida', 'Nuestro Compromiso', 'Datos Personales', 'Información Profesional', 'Formación y Experiencia', 'Foto de Perfil']
     : ['Bienvenida', 'Nuestro Compromiso', 'Datos Personales', 'Contacto'];
 
@@ -117,13 +119,21 @@ export default function CompletarPerfilPage() {
 
   const handleChange = (field: keyof ProfileFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    // Limpiar error del campo al editar
+    if (fieldErrors[field]) {
+      setFieldErrors(prev => {
+        const copy = { ...prev };
+        delete copy[field];
+        return copy;
+      });
+    }
   };
 
   const addArrayItem = (field: 'courses' | 'certifications' | 'academicFormation' | 'trajectory') => {
-    const newItem = field === 'trajectory' 
+    const newItem = field === 'trajectory'
       ? { position: '', institution: '', startYear: new Date().getFullYear() }
       : { title: '', institution: '', year: new Date().getFullYear() };
-    
+
     setFormData(prev => ({
       ...prev,
       [field]: [...(prev[field] || []), newItem],
@@ -192,38 +202,39 @@ export default function CompletarPerfilPage() {
     try {
       setLoading(true);
       setError('');
+      setFieldErrors({});
 
-      // Validaciones
-      if (!formData.firstName || !formData.lastName) {
-        setError('Por favor completa todos los campos requeridos');
-        setLoading(false);
-        return;
-      }
+      // Convertir phone a número si existe
+      const dataToValidate = {
+        ...formData,
+        phone: formData.phone ? String(formData.phone) : '',
+        yearsOfExperience: formData.yearsOfExperience || undefined,
+        consultationFee: formData.consultationFee || undefined,
+      };
 
-      if (!formData.newPassword) {
-        setError('Por favor establece una contraseña para tu cuenta');
-        setLoading(false);
-        return;
-      }
+      // Validar con Zod
+      const result = completeSpecialistProfileSchema.safeParse(dataToValidate);
 
-      if (formData.newPassword !== formData.confirmPassword) {
-        setError('Las contraseñas no coinciden');
-        setLoading(false);
-        return;
-      }
+      if (!result.success) {
+        // Procesar errores de Zod
+        const errors: Record<string, string> = {};
+        result.error.errors.forEach((error) => {
+          const path = error.path.join('.');
+          errors[path] = error.message;
+        });
+        setFieldErrors(errors);
 
-      // Validar formato de contraseña
-      const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/;
-      if (!passwordRegex.test(formData.newPassword)) {
-        setError('La contraseña debe tener al menos 8 caracteres, incluir mayúsculas, minúsculas, números y un carácter especial (!@#$%^&*)');
+        // Mostrar primer error en el alert
+        const firstError = result.error.errors[0];
+        if (firstError) {
+          setError(`⚠️ ${firstError.path.join('.')}: ${firstError.message}`);
+        }
         setLoading(false);
         return;
       }
 
       const token = localStorage.getItem('token');
-      
-      // Preparar datos para enviar (sin confirmPassword)
-      const { confirmPassword, ...dataToSend } = formData;
+      const { confirmPassword, ...dataToSend } = result.data;
 
       const response = await fetch('/api/auth/complete-profile', {
         method: 'POST',
@@ -239,34 +250,30 @@ export default function CompletarPerfilPage() {
         throw new Error(errorData.error?.message || 'Error al guardar perfil');
       }
 
-      const result = await response.json();
-      
-      // CRÍTICO: Actualizar localStorage con el usuario que tiene isNew=false
-      // Esto previene el loop infinito entre dashboard y completar-perfil
-      if (result.success && result.data) {
+      const respResult = await response.json();
+
+      // Actualizar localStorage
+      if (respResult.success && respResult.data) {
         const updatedUser = {
-          id: result.data.id,
-          email: result.data.email,
-          firstName: result.data.firstName,
-          lastName: result.data.lastName,
-          role: result.data.role,
-          phone: result.data.phone,
+          id: respResult.data.id,
+          email: respResult.data.email,
+          firstName: respResult.data.firstName,
+          lastName: respResult.data.lastName,
+          role: respResult.data.role,
+          phone: respResult.data.phone,
           isActive: true,
-          isNew: result.data.isNew // Este ahora es 0/false
+          isNew: respResult.data.isNew
         };
         localStorage.setItem('user', JSON.stringify(updatedUser));
-        
-        // Disparar evento para que useAuth se actualice
         window.dispatchEvent(new Event('user-updated'));
       }
 
-      setSuccess('¡Perfil completado exitosamente! Tu contraseña ha sido establecida.');
+      setSuccess('✓ ¡Perfil completado exitosamente! Tu contraseña ha sido establecida.');
       setTimeout(() => {
-        // Redirección directa sin más verificaciones
         window.location.href = '/dashboard';
       }, 2000);
     } catch (err: any) {
-      setError(err.message || 'Error al completar el perfil. Intenta nuevamente.');
+      setError(`❌ ${err.message || 'Error al completar el perfil. Intenta nuevamente.'}`);
     } finally {
       setLoading(false);
     }
@@ -292,13 +299,13 @@ export default function CompletarPerfilPage() {
               Es un honor contar con profesionales como usted en nuestro equipo
             </Typography>
             <Typography variant="body1" sx={{ maxWidth: 600, mx: 'auto', lineHeight: 1.8 }}>
-              En María Vita creemos que la excelencia médica comienza con personas comprometidas, 
-              capaces y dedicadas al bienestar de nuestros pacientes. Su experiencia y profesionalismo 
+              En María Vita creemos que la excelencia médica comienza con personas comprometidas,
+              capaces y dedicadas al bienestar de nuestros pacientes. Su experiencia y profesionalismo
               son fundamentales para continuar brindando atención de la más alta calidad.
             </Typography>
             <Box sx={{ mt: 4 }}>
               <Typography variant="body2" color="text.secondary" fontStyle="italic">
-                "La medicina es una ciencia de la incertidumbre y un arte de la probabilidad."
+                &quot;La medicina es una ciencia de la incertidumbre y un arte de la probabilidad.&quot;
               </Typography>
               <Typography variant="caption" color="text.secondary">
                 - William Osler
@@ -323,7 +330,7 @@ export default function CompletarPerfilPage() {
                     </Typography>
                   </Box>
                   <Typography variant="body2">
-                    Le proporcionamos las mejores herramientas y recursos para que pueda 
+                    Le proporcionamos las mejores herramientas y recursos para que pueda
                     ejercer su profesión con la máxima calidad y seguridad.
                   </Typography>
                 </Paper>
@@ -337,7 +344,7 @@ export default function CompletarPerfilPage() {
                     </Typography>
                   </Box>
                   <Typography variant="body2" color="text.secondary">
-                    Fomentamos un ambiente colaborativo donde cada miembro del equipo 
+                    Fomentamos un ambiente colaborativo donde cada miembro del equipo
                     es valorado y respetado por su contribución profesional.
                   </Typography>
                 </Paper>
@@ -351,7 +358,7 @@ export default function CompletarPerfilPage() {
                     </Typography>
                   </Box>
                   <Typography variant="body2">
-                    Más allá de la técnica, cultivamos un enfoque humano y empático 
+                    Más allá de la técnica, cultivamos un enfoque humano y empático
                     hacia cada paciente que confía en nosotros.
                   </Typography>
                 </Paper>
@@ -387,6 +394,8 @@ export default function CompletarPerfilPage() {
                 label="Nombre(s)"
                 value={formData.firstName}
                 onChange={(e) => handleChange('firstName', e.target.value)}
+                error={Boolean(fieldErrors['firstName'])}
+                helperText={fieldErrors['firstName'] || ''}
               />
             </Grid>
             <Grid item xs={12} sm={4}>
@@ -396,6 +405,8 @@ export default function CompletarPerfilPage() {
                 label="Apellidos"
                 value={formData.lastName}
                 onChange={(e) => handleChange('lastName', e.target.value)}
+                error={Boolean(fieldErrors['lastName'])}
+                helperText={fieldErrors['lastName'] || ''}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -406,17 +417,22 @@ export default function CompletarPerfilPage() {
                 InputLabelProps={{ shrink: true }}
                 value={formData.dateOfBirth || ''}
                 onChange={(e) => handleChange('dateOfBirth', e.target.value)}
+                error={Boolean(fieldErrors['dateOfBirth'])}
+                helperText={fieldErrors['dateOfBirth'] || ''}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
                 label="Teléfono"
+                placeholder="Ej: 5551234567"
                 value={formData.phone || ''}
                 onChange={(e) => handleChange('phone', e.target.value)}
+                error={Boolean(fieldErrors['phone'])}
+                helperText={fieldErrors['phone'] || 'Teléfono de 10 dígitos'}
               />
             </Grid>
-            
+
             {/* Sección de Contraseña */}
             <Grid item xs={12}>
               <Box display="flex" alignItems="center" sx={{ mt: 2, mb: 1 }}>
@@ -426,8 +442,8 @@ export default function CompletarPerfilPage() {
                 </Typography>
               </Box>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Crea una contraseña segura para tu cuenta. Debe contener al menos 8 caracteres, 
-                incluyendo mayúsculas, minúsculas, números y un carácter especial.
+                Crea una contraseña segura. Debe contener al menos 8 caracteres:
+                mayúsculas, minúsculas, números y un carácter especial (!@#$%^&*)
               </Typography>
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -438,7 +454,8 @@ export default function CompletarPerfilPage() {
                 label="Nueva Contraseña"
                 value={formData.newPassword || ''}
                 onChange={(e) => handleChange('newPassword', e.target.value)}
-                helperText="Mínimo 8 caracteres con mayúsculas, minúsculas, números y símbolos"
+                error={Boolean(fieldErrors['newPassword'])}
+                helperText={fieldErrors['newPassword'] || 'Mín. 8 caracteres, mayúscula, minúscula, número y símbolo'}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -449,12 +466,8 @@ export default function CompletarPerfilPage() {
                 label="Confirmar Contraseña"
                 value={formData.confirmPassword || ''}
                 onChange={(e) => handleChange('confirmPassword', e.target.value)}
-                error={formData.confirmPassword !== '' && formData.newPassword !== formData.confirmPassword}
-                helperText={
-                  formData.confirmPassword !== '' && formData.newPassword !== formData.confirmPassword
-                    ? 'Las contraseñas no coinciden'
-                    : 'Repite la contraseña para confirmar'
-                }
+                error={Boolean(fieldErrors['confirmPassword'])}
+                helperText={fieldErrors['confirmPassword'] || 'Repite la contraseña para confirmar'}
               />
             </Grid>
           </Grid>
@@ -471,6 +484,8 @@ export default function CompletarPerfilPage() {
                 label="Especialidad"
                 value={formData.specialty || ''}
                 onChange={(e) => handleChange('specialty', e.target.value)}
+                error={Boolean(fieldErrors['specialty'])}
+                helperText={fieldErrors['specialty'] || 'Ej: Cardiología, Pediatría, etc.'}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -478,8 +493,11 @@ export default function CompletarPerfilPage() {
                 fullWidth
                 required
                 label="Cédula Profesional"
+                placeholder="Números solamente"
                 value={formData.licenseNumber || ''}
                 onChange={(e) => handleChange('licenseNumber', e.target.value)}
+                error={Boolean(fieldErrors['licenseNumber'])}
+                helperText={fieldErrors['licenseNumber'] || '7-10 dígitos'}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -488,6 +506,8 @@ export default function CompletarPerfilPage() {
                 label="Consultorio Asignado"
                 value={formData.assignedOffice || ''}
                 onChange={(e) => handleChange('assignedOffice', e.target.value)}
+                error={Boolean(fieldErrors['assignedOffice'])}
+                helperText={fieldErrors['assignedOffice'] || ''}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -496,7 +516,9 @@ export default function CompletarPerfilPage() {
                 type="number"
                 label="Años de Experiencia"
                 value={formData.yearsOfExperience || ''}
-                onChange={(e) => handleChange('yearsOfExperience', parseInt(e.target.value))}
+                onChange={(e) => handleChange('yearsOfExperience', parseInt(e.target.value) || undefined)}
+                error={Boolean(fieldErrors['yearsOfExperience'])}
+                helperText={fieldErrors['yearsOfExperience'] || '0-60 años'}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -505,7 +527,9 @@ export default function CompletarPerfilPage() {
                 type="number"
                 label="Tarifa de Consulta (MXN)"
                 value={formData.consultationFee || ''}
-                onChange={(e) => handleChange('consultationFee', parseFloat(e.target.value))}
+                onChange={(e) => handleChange('consultationFee', parseFloat(e.target.value) || undefined)}
+                error={Boolean(fieldErrors['consultationFee'])}
+                helperText={fieldErrors['consultationFee'] || 'Cantidad en pesos'}
               />
             </Grid>
             <Grid item xs={12}>
@@ -517,6 +541,8 @@ export default function CompletarPerfilPage() {
                 placeholder="Describe brevemente tu experiencia profesional..."
                 value={formData.biography || ''}
                 onChange={(e) => handleChange('biography', e.target.value)}
+                error={Boolean(fieldErrors['biography'])}
+                helperText={fieldErrors['biography'] || 'Máximo 5000 caracteres'}
               />
             </Grid>
           </Grid>
@@ -790,7 +816,7 @@ export default function CompletarPerfilPage() {
           >
             Atrás
           </Button>
-          
+
           {activeStep === steps.length - 1 ? (
             <Button
               variant="contained"
@@ -800,14 +826,14 @@ export default function CompletarPerfilPage() {
               {loading ? <CircularProgress size={24} /> : 'Completar Perfil'}
             </Button>
           ) : (
-            <Button 
-              variant="contained" 
+            <Button
+              variant="contained"
               onClick={handleNext}
               disabled={
                 activeStep === 2 && (
-                  !formData.firstName || 
-                  !formData.lastName || 
-                  !formData.newPassword || 
+                  !formData.firstName ||
+                  !formData.lastName ||
+                  !formData.newPassword ||
                   !formData.confirmPassword ||
                   formData.newPassword !== formData.confirmPassword
                 )

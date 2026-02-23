@@ -8,33 +8,245 @@ import { z } from 'zod';
 import { VALIDATION_PATTERNS } from '../types/enums';
 
 // ============================================
-// VALIDACIONES DE USUARIO
+// ESQUEMA DE CONTRASEÑA FUERTE (reutilizable)
 // ============================================
+
+const strongPasswordSchema = z
+  .string()
+  .min(8, 'La contraseña debe tener al menos 8 caracteres')
+  .max(100, 'La contraseña no puede ser muy larga')
+  .regex(/[A-Z]/, 'Debe contener al menos una mayúscula (A-Z)')
+  .regex(/[a-z]/, 'Debe contener al menos una minúscula (a-z)')
+  .regex(/\d/, 'Debe contener al menos un número (0-9)')
+  .regex(/[!@#$%^&*]/, 'Debe contener al menos un carácter especial (!@#$%^&*)');
+
+// ============================================
+// VALIDACIONES DE AUTENTICACIÓN
+// ============================================
+
+/**
+ * Validador de email personalizado que permite JESSE@ADMIN
+ */
+const customEmailValidation = z
+  .string({ required_error: 'Email es requerido' })
+  .min(1, 'El email no puede estar vacío')
+  .max(255, 'Email muy largo')
+  .refine(
+    (email) => {
+      // Permitir JESSE@ADMIN (case-insensitive)
+      if (email.toUpperCase() === 'JESSE@ADMIN') {
+        return true;
+      }
+      // Validar formato de email estándar con punto en dominio
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    },
+    { message: 'Formato de email inválido' }
+  );
+
+/**
+ * Esquema para login
+ */
+export const loginSchema = z.object({
+  email: customEmailValidation,
+  password: z
+    .string({ required_error: 'Contraseña es requerida' })
+    .min(1, 'La contraseña no puede estar vacía')
+});
 
 /**
  * Esquema para crear un usuario
  */
 export const createUserSchema = z.object({
-  email: z
-    .string()
-    .email('Email inválido')
-    .max(255, 'Email muy largo'),
-  password: z
-    .string()
-    .min(8, 'La contraseña debe tener al menos 8 caracteres')
-    .max(100, 'Contraseña muy larga'),
+  email: customEmailValidation,
+  password: strongPasswordSchema,
   firstName: z
-    .string()
-    .min(2, 'Nombre muy corto')
+    .string({ required_error: 'Nombre es requerido' })
+    .min(2, 'El nombre debe tener al menos 2 caracteres')
     .max(100, 'Nombre muy largo'),
   lastName: z
-    .string()
-    .min(2, 'Apellido muy corto')
+    .string({ required_error: 'Apellido es requerido' })
+    .min(2, 'El apellido debe tener al menos 2 caracteres')
     .max(100, 'Apellido muy largo'),
   phone: z
     .string()
-    .regex(VALIDATION_PATTERNS.PHONE, 'Teléfono inválido (10 dígitos)')
+    .regex(/^\d{10}$/, 'Teléfono debe tener exactamente 10 dígitos')
     .optional()
+    .or(z.literal(''))
+});
+
+// ============================================
+// VALIDACIONES DE COMPLETAR PERFIL
+// ============================================
+
+/**
+ * Esquema para completar perfil de especialista
+ */
+export const completeSpecialistProfileSchema = z.object({
+  suffix: z
+    .string()
+    .optional()
+    .or(z.literal('')),
+  firstName: z
+    .string({ required_error: 'Nombre es requerido' })
+    .min(2, 'El nombre debe tener al menos 2 caracteres')
+    .max(100, 'Nombre muy largo'),
+  lastName: z
+    .string({ required_error: 'Apellido es requerido' })
+    .min(2, 'El apellido debe tener al menos 2 caracteres')
+    .max(100, 'Apellido muy largo'),
+  dateOfBirth: z
+    .string()
+    .optional()
+    .refine((val) => !val || !isNaN(Date.parse(val)), 'Fecha de nacimiento inválida'),
+  phone: z
+    .string()
+    .regex(/^\d{10}$/, 'Teléfono debe tener exactamente 10 dígitos')
+    .optional()
+    .or(z.literal('')),
+  newPassword: strongPasswordSchema,
+  confirmPassword: z
+    .string({ required_error: 'Confirmar contraseña es requerida' })
+    .min(1, 'Debe confirmar la contraseña'),
+  // Campos de especialista
+  specialty: z
+    .string({ required_error: 'Especialidad es requerida' })
+    .min(2, 'Especialidad muy corta')
+    .max(100, 'Especialidad muy larga'),
+  licenseNumber: z
+    .string({ required_error: 'Cédula profesional es requerida' })
+    .regex(/^\d{7,10}$/, 'Cédula profesional debe tener 7-10 dígitos'),
+  assignedOffice: z
+    .string()
+    .max(50, 'Consultorio muy largo')
+    .optional()
+    .or(z.literal('')),
+  biography: z
+    .string()
+    .max(5000, 'Biografía muy larga')
+    .optional()
+    .or(z.literal('')),
+  yearsOfExperience: z
+    .number()
+    .int('Años debe ser un número entero')
+    .min(0, 'Años no puede ser negativo')
+    .max(60, 'Años de experiencia inválido')
+    .optional()
+    .or(z.nan()),
+  consultationFee: z
+    .number()
+    .min(0, 'Tarifa no puede ser negativa')
+    .max(99999, 'Tarifa muy alta')
+    .optional()
+    .or(z.nan()),
+  photoUrl: z
+    .string()
+    .url('URL de foto inválida')
+    .optional()
+    .or(z.literal('')),
+  courses: z
+    .array(z.object({
+      title: z.string({ required_error: 'Título del curso requerido' }),
+      institution: z.string({ required_error: 'Institución requerida' }),
+      year: z.number().int('Año debe ser entero').min(1900, 'Año inválido').max(new Date().getFullYear(), 'Año no puede ser en el futuro')
+    }))
+    .optional(),
+  certifications: z
+    .array(z.object({
+      title: z.string({ required_error: 'Título de certificación requerido' }),
+      issuer: z.string({ required_error: 'Emisor requerido' }),
+      year: z.number().int('Año debe ser entero').min(1900, 'Año inválido').max(new Date().getFullYear(), 'Año no puede ser futuro')
+    }))
+    .optional(),
+  academicFormation: z
+    .array(z.object({
+      degree: z.string({ required_error: 'Título/Grado requerido' }),
+      institution: z.string({ required_error: 'Institución requerida' }),
+      year: z.number().int('Año debe ser entero').min(1900, 'Año inválido').max(new Date().getFullYear(), 'Año no puede ser futuro')
+    }))
+    .optional(),
+  trajectory: z
+    .array(z.object({
+      position: z.string({ required_error: 'Puesto requerido' }),
+      institution: z.string({ required_error: 'Institución requerida' }),
+      startYear: z.number().int('Año debe ser entero').min(1900, 'Año inválido'),
+      endYear: z.number().int('Año debe ser entero').optional()
+    }))
+    .optional()
+}).refine(
+  (data) => data.newPassword === data.confirmPassword,
+  {
+    message: 'Las contraseñas no coinciden',
+    path: ['confirmPassword']
+  }
+);
+
+/**
+ * Esquema para completar perfil de administrador
+ */
+export const completeAdminProfileSchema = z.object({
+  suffix: z
+    .string()
+    .optional()
+    .or(z.literal('')),
+  firstName: z
+    .string({ required_error: 'Nombre es requerido' })
+    .min(2, 'El nombre debe tener al menos 2 caracteres')
+    .max(100, 'Nombre muy largo'),
+  lastName: z
+    .string({ required_error: 'Apellido es requerido' })
+    .min(2, 'El apellido debe tener al menos 2 caracteres')
+    .max(100, 'Apellido muy largo'),
+  phone: z
+    .string()
+    .regex(/^\d{10}$/, 'Teléfono debe tener exactamente 10 dígitos')
+    .optional()
+    .or(z.literal('')),
+  newPassword: strongPasswordSchema,
+  confirmPassword: z
+    .string({ required_error: 'Confirmar contraseña es requerida' })
+    .min(1, 'Debe confirmar la contraseña'),
+  photoUrl: z
+    .string()
+    .url('URL de foto inválida')
+    .optional()
+    .or(z.literal(''))
+}).refine(
+  (data) => data.confirmPassword === data.newPassword,
+  {
+    message: 'Las contraseñas no coinciden',
+    path: ['confirmPassword']
+  }
+);
+
+// ============================================
+// VALIDACIONES DE FORMULARIOS
+// ============================================
+
+/**
+ * Esquema para formulario de contacto
+ */
+export const contactFormSchema = z.object({
+  name: z
+    .string({ required_error: 'Nombre es requerido' })
+    .min(3, 'El nombre debe tener al menos 3 caracteres')
+    .max(100, 'Nombre muy largo'),
+  phone: z
+    .string()
+    .regex(/^\d{10}$/, 'Teléfono debe tener exactamente 10 dígitos')
+    .optional()
+    .or(z.literal(''))
+    .refine((val) => !val || val.length === 10, 'Teléfono debe tener 10 dígitos'),
+  email: z
+    .string({ required_error: 'Email es requerido' })
+    .email('Formato de email inválido'),
+  subject: z
+    .string({ required_error: 'Asunto es requerido' })
+    .min(5, 'El asunto debe tener al menos 5 caracteres')
+    .max(200, 'Asunto muy largo'),
+  message: z
+    .string({ required_error: 'Mensaje es requerido' })
+    .min(10, 'El mensaje debe tener al menos 10 caracteres')
+    .max(5000, 'Mensaje muy largo')
 });
 
 // ============================================
