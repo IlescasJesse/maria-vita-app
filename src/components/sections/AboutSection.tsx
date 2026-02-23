@@ -95,6 +95,66 @@ export default function AboutSection() {
               seguridad y bienestar del paciente en primer lugar.
             </Typography>
 
+            <Box sx={{ mt: 4 }}>
+              <Typography
+                variant="h5"
+                sx={{ fontWeight: 700, mb: 1.5, color: 'primary.main' }}
+              >
+                Misión
+              </Typography>
+              <Typography
+                variant="body1"
+                color="text.secondary"
+                sx={{ fontSize: '1.05rem', lineHeight: 1.8 }}
+              >
+                Cuidar la vida con ciencia, ética y humanidad, integrando el diagnóstico de laboratorio
+                y la atención médica para ofrecer respuestas claras, oportunas y confiables a cada persona.
+              </Typography>
+            </Box>
+
+            <Box sx={{ mt: 3 }}>
+              <Typography
+                variant="h5"
+                sx={{ fontWeight: 700, mb: 1.5, color: 'primary.main' }}
+              >
+                Visión
+              </Typography>
+              <Typography
+                variant="body1"
+                color="text.secondary"
+                sx={{ fontSize: '1.05rem', lineHeight: 1.8 }}
+              >
+                Ser un referente de medicina integral, donde el conocimiento científico y el trato humano
+                se unan para transformar la manera de diagnosticar y cuidar la salud.
+              </Typography>
+            </Box>
+
+            <Box sx={{ mt: 3 }}>
+              <Typography
+                variant="h5"
+                sx={{ fontWeight: 700, mb: 1.5, color: 'primary.main' }}
+              >
+                Valores
+              </Typography>
+              <Stack spacing={1.5} sx={{ pl: 1 }}>
+                <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.8 }}>
+                  • Humanidad: Cada muestra y cada consulta pertenecen a una persona, no a un número.
+                </Typography>
+                <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.8 }}>
+                  • Ética: Decidimos siempre pensando en el bien del paciente.
+                </Typography>
+                <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.8 }}>
+                  • Excelencia: Precisión científica al servicio de la vida.
+                </Typography>
+                <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.8 }}>
+                  • Compromiso: Acompañamos al paciente en cada etapa de su diagnóstico.
+                </Typography>
+                <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.8 }}>
+                  • Respeto: A la dignidad, al tiempo y a la historia de cada persona.
+                </Typography>
+              </Stack>
+            </Box>
+
             {/* Stats */}
             <Stack direction="row" spacing={4} sx={{ mt: 4 }}>
               <Box>
@@ -162,11 +222,11 @@ export default function AboutSection() {
                         borderRadius: 2,
                         transition: 'all 0.3s ease',
                         '&:hover': {
-                        borderColor: 'primary.main',
-                        boxShadow: `0 4px 12px ${alpha('#00875F', 0.1)}`,
-                        transform: 'translateY(-4px)',
-                        '& .feature-icon': {
-                          bgcolor: 'primary.main',
+                          borderColor: 'primary.main',
+                          boxShadow: `0 4px 12px ${alpha('#00875F', 0.1)}`,
+                          transform: 'translateY(-4px)',
+                          '& .feature-icon': {
+                            bgcolor: 'primary.main',
                             color: 'white'
                           }
                         }

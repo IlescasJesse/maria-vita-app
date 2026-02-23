@@ -45,6 +45,7 @@ const contactInfo = [
 ];
 
 export default function ContactSection() {
+  const whatsappLink = 'https://wa.me/5219512431567?text=Hola%2C%20necesito%20informacion%20acerca%20unos%20estudios%20y%2Fo%20consulta';
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -241,7 +242,24 @@ export default function ContactSection() {
                               whiteSpace: 'pre-line'
                             }}
                           >
-                            {info.content}
+                            {info.title === 'Teléfono' ? (
+                              <Box
+                                component="a"
+                                href={whatsappLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                sx={{
+                                  color: 'primary.main',
+                                  fontWeight: 600,
+                                  textDecoration: 'none',
+                                  '&:hover': { textDecoration: 'underline' }
+                                }}
+                              >
+                                {info.content}
+                              </Box>
+                            ) : (
+                              info.content
+                            )}
                           </Typography>
                         </Box>
                       </Stack>
