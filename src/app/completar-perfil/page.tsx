@@ -553,7 +553,31 @@ export default function CompletarPerfilPage() {
         );
 
       case 3: // Información Profesional (solo especialistas)
-        if (normalizeRole(userRole) !== 'SPECIALIST') return null;
+        if (normalizeRole(userRole) !== 'SPECIALIST') {
+          return (
+            <Grid container spacing={3}>
+              <Grid item xs={12}>
+                <Typography variant="h6" color="primary" gutterBottom>
+                  Información de Contacto
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Verifica tu teléfono de contacto para notificaciones y seguimiento.
+                </Typography>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Teléfono"
+                  placeholder="Ej: 5551234567"
+                  value={formData.phone || ''}
+                  onChange={(e) => handleChange('phone', e.target.value)}
+                  error={Boolean(fieldErrors['phone'])}
+                  helperText={fieldErrors['phone'] || 'Teléfono de 10 dígitos'}
+                />
+              </Grid>
+            </Grid>
+          );
+        }
         return (
           <Grid container spacing={3}>
             <Grid item xs={12} sm={6}>
@@ -753,6 +777,11 @@ export default function CompletarPerfilPage() {
 
             {/* Trayectoria */}
             <Typography variant="h6" gutterBottom sx={{ mt: 4 }}>Trayectoria Profesional</Typography>
+            {fieldErrors['trajectory'] && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {fieldErrors['trajectory']}
+              </Alert>
+            )}
             {(formData.trajectory || []).map((item, index) => (
               <Grid container spacing={2} key={index} sx={{ mb: 2 }}>
                 <Grid item xs={12} sm={4}>

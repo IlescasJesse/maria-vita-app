@@ -516,6 +516,41 @@ export const completeProfile = async (
       trajectory
     } = req.body;
 
+    if (currentUser.role === 'SPECIALIST') {
+      if (!specialty || !String(specialty).trim()) {
+        res.status(400).json({
+          success: false,
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'La especialidad es requerida para especialistas'
+          }
+        });
+        return;
+      }
+
+      if (!licenseNumber || !String(licenseNumber).trim()) {
+        res.status(400).json({
+          success: false,
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'La cédula profesional es requerida para especialistas'
+          }
+        });
+        return;
+      }
+
+      if (!Array.isArray(trajectory) || trajectory.length === 0) {
+        res.status(400).json({
+          success: false,
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Debes agregar al menos una trayectoria profesional'
+          }
+        });
+        return;
+      }
+    }
+
     const updateData: any = {
       isNew: false, // Marcar perfil como completado
       firstName,

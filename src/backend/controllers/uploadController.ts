@@ -45,9 +45,8 @@ export const generateProfilePhoto = async (
     }
 
     // Prompt para generar foto profesional 
-    const prompt = `Professional portrait photo of a ${gender} person named ${firstName} ${lastName}${
-      specialty ? ` who is a ${specialty}` : ''
-    }. Professional headshot, medical professional dress code, studio lighting, white background, 256x256px, high quality`;
+    const prompt = `Professional portrait photo of a ${gender} person named ${firstName} ${lastName}${specialty ? ` who is a ${specialty}` : ''
+      }. Professional headshot, medical professional dress code, studio lighting, white background, 256x256px, high quality`;
 
     const hfApiKey = process.env.HUGGING_FACE_API_KEY;
     const hfModel = process.env.HUGGING_FACE_MODEL || 'stabilityai/stable-diffusion-2-1';
@@ -197,7 +196,7 @@ export const uploadProfilePhoto = async (
           code: 'INVALID_FORMAT',
           message: 'Formato de imagen inválido'
         }
-      });
+      }); 22
       return;
     }
 

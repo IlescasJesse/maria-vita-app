@@ -166,12 +166,16 @@ export const completeSpecialistProfileSchema = z.object({
     .optional(),
   trajectory: z
     .array(z.object({
-      position: z.string({ required_error: 'Puesto requerido' }),
-      institution: z.string({ required_error: 'Institución requerida' }),
+      position: z
+        .string({ required_error: 'Puesto requerido' })
+        .min(2, 'Puesto requerido'),
+      institution: z
+        .string({ required_error: 'Institución requerida' })
+        .min(2, 'Institución requerida'),
       startYear: z.number().int('Año debe ser entero').min(1900, 'Año inválido'),
       endYear: z.number().int('Año debe ser entero').optional()
     }))
-    .optional()
+    .min(1, 'Debes agregar al menos una trayectoria profesional')
 }).refine(
   (data) => data.newPassword === data.confirmPassword,
   {
