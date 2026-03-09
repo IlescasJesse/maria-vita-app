@@ -254,8 +254,14 @@ export const getProfile = async (
             specialty: true,
             licenseNumber: true,
             assignedOffice: true,
+            biography: true,
+            yearsOfExperience: true,
             photoUrl: true,
-            consultationFee: true
+            consultationFee: true,
+            courses: true,
+            certifications: true,
+            academicFormation: true,
+            trajectory: true
           }
         }
       }
@@ -470,7 +476,15 @@ export const completeProfile = async (
     // Verificar que el usuario sea nuevo
     const currentUser = await prisma.user.findUnique({
       where: { id: req.user.id },
-      select: { isNew: true, role: true }
+      select: {
+        isNew: true,
+        role: true,
+        specialist: {
+          select: {
+            id: true,
+          }
+        }
+      }
     });
 
     if (!currentUser) {
@@ -516,7 +530,23 @@ export const completeProfile = async (
       trajectory
     } = req.body;
 
-    if (currentUser.role === 'SPECIALIST') {
+    const hasSpecialistPayload = Boolean(
+      specialty ||
+      licenseNumber ||
+      assignedOffice ||
+      biography ||
+      yearsOfExperience !== undefined ||
+      consultationFee !== undefined ||
+      photoUrl ||
+      (Array.isArray(courses) && courses.length > 0) ||
+      (Array.isArray(certifications) && certifications.length > 0) ||
+      (Array.isArray(academicFormation) && academicFormation.length > 0) ||
+      (Array.isArray(trajectory) && trajectory.length > 0)
+    );
+
+    const isSpecialistUser = currentUser.role === 'SPECIALIST' || Boolean(currentUser.specialist) || hasSpecialistPayload;
+
+    if (isSpecialistUser) {
       if (!specialty || !String(specialty).trim()) {
         res.status(400).json({
           success: false,
@@ -557,6 +587,10 @@ export const completeProfile = async (
       lastName,
     };
 
+    if (isSpecialistUser && currentUser.role !== 'SPECIALIST') {
+      updateData.role = 'SPECIALIST';
+    }
+
     if (suffix) updateData.suffix = suffix;
     if (dateOfBirth) updateData.dateOfBirth = new Date(dateOfBirth);
     if (phone) updateData.phone = phone;
@@ -585,7 +619,7 @@ export const completeProfile = async (
     });
 
     // Si es especialista, actualizar campos adicionales
-    if (currentUser.role === 'SPECIALIST') {
+    if (isSpecialistUser) {
       const specialistData: any = {};
 
       if (specialty) specialistData.specialty = specialty;
@@ -600,9 +634,18 @@ export const completeProfile = async (
       if (academicFormation) specialistData.academicFormation = academicFormation;
       if (trajectory) specialistData.trajectory = trajectory;
 
-      await prisma.specialist.update({
+      specialistData.fullName = `${firstName || ''} ${lastName || ''}`.trim() || 'Especialista';
+      specialistData.specialty = specialistData.specialty || 'Por definir';
+      specialistData.licenseNumber = specialistData.licenseNumber || `PEND-${req.user.id.slice(0, 8).toUpperCase()}`;
+
+      await prisma.specialist.upsert({
         where: { userId: req.user.id },
-        data: specialistData
+        create: {
+          userId: req.user.id,
+          ...specialistData,
+          isAvailable: true,
+        },
+        update: specialistData,
       });
     }
 
@@ -614,7 +657,11 @@ export const completeProfile = async (
       module: 'AUTH',
       entityType: 'user',
       entityId: req.user.id,
-      metadata: { role: currentUser.role, passwordChanged: !!newPassword },
+      metadata: {
+        previousRole: currentUser.role,
+        role: isSpecialistUser ? 'SPECIALIST' : currentUser.role,
+        passwordChanged: !!newPassword,
+      },
       ipAddress: req.ip,
       userAgent: req.get('user-agent')
     });

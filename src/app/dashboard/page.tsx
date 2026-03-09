@@ -6,10 +6,11 @@
 'use client';
 
 import { useState } from 'react';
-import { Box, AppBar, Toolbar, Typography, IconButton, Stack, Avatar } from '@mui/material';
+import { Box, AppBar, Toolbar, Typography, IconButton, Stack } from '@mui/material';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { useAuth } from '@/hooks/useAuth';
 import Sidebar from '@/components/dashboard/Sidebar';
+import ClinicAvatar from '@/components/ClinicAvatar';
 
 // Importar todos los módulos
 import OverviewModule from '@/components/dashboard/modules/OverviewModule';
@@ -27,6 +28,7 @@ import SettingsModule from '@/components/dashboard/modules/SettingsModule';
 export default function DashboardPage() {
   const { user, isLoading, isAuthenticated, logout } = useAuth();
   const [activeModule, setActiveModule] = useState('overview');
+  const userPhotoUrl = (user as any)?.specialist?.photoUrl || (user as any)?.photoUrl;
 
   // Sin verificaciones de isNew - el login ya manejó el routing
   if (isLoading || !isAuthenticated) {
@@ -109,17 +111,12 @@ export default function DashboardPage() {
             </Typography>
 
             <Stack direction="row" spacing={2} alignItems="center">
-              <Avatar
-                sx={{
-                  width: 36,
-                  height: 36,
-                  bgcolor: 'primary.main',
-                  fontSize: '0.875rem',
-                }}
-              >
-                {user.firstName.charAt(0)}
-                {user.lastName.charAt(0)}
-              </Avatar>
+              <ClinicAvatar
+                firstName={user.firstName}
+                lastName={user.lastName}
+                photoUrl={userPhotoUrl}
+                sx={{ width: 36, height: 36, fontSize: '0.875rem' }}
+              />
               <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
                 <Typography variant="body2" fontWeight="medium">
                   {user.firstName} {user.lastName}

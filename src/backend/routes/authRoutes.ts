@@ -166,6 +166,7 @@ router.post('/login', loginValidation, login);
  * - 401: No autenticado o token inválido
  */
 router.get('/me', authenticate, getProfile);
+router.get('/profile', authenticate, getProfile);
 
 /**
  * PUT /api/auth/me

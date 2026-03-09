@@ -17,7 +17,6 @@ import {
   CircularProgress,
   Grid,
   IconButton,
-  Avatar,
 } from '@mui/material';
 import {
   PhotoCamera,
@@ -30,6 +29,7 @@ import {
   Lock as LockIcon,
 } from '@mui/icons-material';
 import { completeAdminProfileSchema, completeSpecialistProfileSchema } from '@/lib/validations';
+import ClinicAvatar from '@/components/ClinicAvatar';
 
 interface ProfileFormData {
   // Datos básicos (todos los roles)
@@ -37,7 +37,7 @@ interface ProfileFormData {
   firstName: string;
   lastName: string;
   dateOfBirth?: string;
-  phone?: number;
+  phone?: string;
   newPassword?: string;
   confirmPassword?: string;
 
@@ -64,7 +64,7 @@ export default function CompletarPerfilPage() {
   const [success, setSuccess] = useState('');
   const [activeStep, setActiveStep] = useState(0);
   const [userRole, setUserRole] = useState<string>('');
-  const [userId, setUserId] = useState<string>('');
+  const [hasSpecialistProfile, setHasSpecialistProfile] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const [formData, setFormData] = useState<ProfileFormData>({
@@ -109,8 +109,8 @@ export default function CompletarPerfilPage() {
           const user = JSON.parse(userData);
           const normalizedRole = normalizeRole(user.role);
 
-          if (user.id) {
-            setUserId(user.id);
+          if (Boolean(user?.specialist)) {
+            setHasSpecialistProfile(true);
           }
 
           if (normalizedRole) {
@@ -130,7 +130,7 @@ export default function CompletarPerfilPage() {
 
       try {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
-        const response = await fetch(`${apiUrl}/auth/profile`, {
+        const response = await fetch(`${apiUrl}/auth/me`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -140,12 +140,14 @@ export default function CompletarPerfilPage() {
           const profileResponse = await response.json();
           const profileUser = profileResponse?.data;
           const normalizedRole = normalizeRole(profileUser?.role);
+          const hasSpecialistData = Boolean(profileUser?.specialist);
 
-          if (profileUser?.id) {
-            setUserId(profileUser.id);
+          if (hasSpecialistData) {
+            setHasSpecialistProfile(true);
           }
-          if (normalizedRole) {
-            setUserRole(normalizedRole);
+
+          if (normalizedRole || hasSpecialistData) {
+            setUserRole(normalizedRole || 'SPECIALIST');
             shouldFetchProfile = false;
           }
 
@@ -161,7 +163,7 @@ export default function CompletarPerfilPage() {
           localStorage.setItem('user', JSON.stringify({
             ...parsedLocalUser,
             ...profileUser,
-            role: normalizedRole || profileUser?.role,
+            role: normalizedRole || (hasSpecialistData ? 'SPECIALIST' : profileUser?.role),
           }));
         }
       } catch (err) {
@@ -181,7 +183,9 @@ export default function CompletarPerfilPage() {
     initializeUser();
   }, [router]);
 
-  const steps = normalizeRole(userRole) === 'SPECIALIST'
+  const isSpecialistFlow = normalizeRole(userRole) === 'SPECIALIST' || hasSpecialistProfile;
+
+  const steps = isSpecialistFlow
     ? ['Bienvenida', 'Nuestro Compromiso', 'Datos Personales', 'Información Profesional', 'Formación y Experiencia', 'Foto de Perfil']
     : ['Bienvenida', 'Nuestro Compromiso', 'Datos Personales', 'Contacto'];
 
@@ -205,15 +209,152 @@ export default function CompletarPerfilPage() {
     }
   };
 
+  const clearFieldErrorsByPrefix = (prefix: string) => {
+    setFieldErrors(prev => {
+      const copy = { ...prev };
+      Object.keys(copy).forEach((key) => {
+        if (key === prefix || key.startsWith(`${prefix}.`)) {
+          delete copy[key];
+        }
+      });
+      return copy;
+    });
+  };
+
+  const toNumberOrUndefined = (value: string) => {
+    const cleanedValue = String(value ?? '').trim();
+    if (!cleanedValue) return undefined;
+    const parsed = Number(cleanedValue);
+    return Number.isNaN(parsed) ? undefined : parsed;
+  };
+
+  const getFieldError = (path: string) => fieldErrors[path] || '';
+
+  const formatFieldPathLabel = (path: string) => {
+    const fieldLabels: Record<string, string> = {
+      firstName: 'Nombre',
+      lastName: 'Apellidos',
+      phone: 'Teléfono',
+      newPassword: 'Nueva contraseña',
+      confirmPassword: 'Confirmar contraseña',
+      specialty: 'Especialidad',
+      licenseNumber: 'Cédula profesional',
+      assignedOffice: 'Consultorio asignado',
+      yearsOfExperience: 'Años de experiencia',
+      consultationFee: 'Tarifa de consulta',
+      biography: 'Biografía',
+      dateOfBirth: 'Fecha de nacimiento',
+      suffix: 'Sufijo',
+      degree: 'Título/Grado',
+      institution: 'Institución',
+      year: 'Año',
+      title: 'Título',
+      issuer: 'Emisor',
+      position: 'Puesto',
+      startYear: 'Año inicio',
+      endYear: 'Año fin',
+      trajectory: 'Trayectoria profesional',
+      courses: 'Cursos',
+      certifications: 'Certificaciones',
+      academicFormation: 'Formación académica',
+    };
+
+    const sections: Record<string, string> = {
+      academicFormation: 'Formación académica',
+      certifications: 'Certificaciones',
+      courses: 'Cursos',
+      trajectory: 'Trayectoria profesional',
+    };
+
+    const dynamicMatch = path.match(/^(academicFormation|certifications|courses|trajectory)\.(\d+)\.(\w+)$/);
+    if (dynamicMatch) {
+      const [, section, index, field] = dynamicMatch;
+      if (!section || !index || !field) {
+        return path;
+      }
+      const sectionLabel = sections[section] || section;
+      const fieldLabel = fieldLabels[field] || field;
+      return `${sectionLabel} #${Number(index) + 1} - ${fieldLabel}`;
+    }
+
+    return fieldLabels[path] || path;
+  };
+
+  const sanitizeProfileData = (data: ProfileFormData): ProfileFormData => {
+    const cleanText = (value?: string) => (typeof value === 'string' ? value.trim() : value);
+
+    const cleanCourses = (data.courses || [])
+      .map(item => ({
+        title: cleanText(item.title) || '',
+        institution: cleanText(item.institution) || '',
+        year: Number(item.year),
+      }))
+      .filter(item => item.title || item.institution || !Number.isNaN(item.year));
+
+    const cleanCertifications = (data.certifications || [])
+      .map(item => ({
+        title: cleanText(item.title) || '',
+        issuer: cleanText(item.issuer) || '',
+        year: Number(item.year),
+      }))
+      .filter(item => item.title || item.issuer || !Number.isNaN(item.year));
+
+    const cleanAcademicFormation = (data.academicFormation || [])
+      .map(item => ({
+        degree: cleanText(item.degree) || '',
+        institution: cleanText(item.institution) || '',
+        year: Number(item.year),
+      }))
+      .filter(item => item.degree || item.institution || !Number.isNaN(item.year));
+
+    const cleanTrajectory = (data.trajectory || [])
+      .map(item => ({
+        position: cleanText(item.position) || '',
+        institution: cleanText(item.institution) || '',
+        startYear: Number(item.startYear),
+        endYear: item.endYear === undefined || item.endYear === null
+          ? undefined
+          : Number(item.endYear),
+      }))
+      .filter(item => item.position || item.institution || !Number.isNaN(item.startYear) || item.endYear !== undefined);
+
+    return {
+      ...data,
+      suffix: cleanText(data.suffix),
+      firstName: cleanText(data.firstName) || '',
+      lastName: cleanText(data.lastName) || '',
+      specialty: cleanText(data.specialty),
+      licenseNumber: cleanText(data.licenseNumber),
+      assignedOffice: cleanText(data.assignedOffice),
+      biography: cleanText(data.biography),
+      newPassword: data.newPassword,
+      confirmPassword: data.confirmPassword,
+      courses: cleanCourses,
+      certifications: cleanCertifications,
+      academicFormation: cleanAcademicFormation,
+      trajectory: cleanTrajectory,
+    };
+  };
+
   const addArrayItem = (field: 'courses' | 'certifications' | 'academicFormation' | 'trajectory') => {
-    const newItem = field === 'trajectory'
-      ? { position: '', institution: '', startYear: new Date().getFullYear() }
-      : { title: '', institution: '', year: new Date().getFullYear() };
+    let newItem: Record<string, any>;
+
+    if (field === 'trajectory') {
+      newItem = { position: '', institution: '', startYear: new Date().getFullYear(), endYear: undefined };
+    } else if (field === 'academicFormation') {
+      newItem = { degree: '', institution: '', year: new Date().getFullYear() };
+    } else if (field === 'certifications') {
+      newItem = { title: '', issuer: '', year: new Date().getFullYear() };
+    } else {
+      newItem = { title: '', institution: '', year: new Date().getFullYear() };
+    }
 
     setFormData(prev => ({
       ...prev,
       [field]: [...(prev[field] || []), newItem],
     }));
+
+    clearFieldErrorsByPrefix(field);
   };
 
   const updateArrayItem = (
@@ -229,6 +370,11 @@ export default function CompletarPerfilPage() {
       }
       return { ...prev, [field]: array };
     });
+
+    clearFieldErrorsByPrefix(`${field}.${index}.${key}`);
+    if (field === 'trajectory') {
+      clearFieldErrorsByPrefix('trajectory');
+    }
   };
 
   const removeArrayItem = (
@@ -239,6 +385,8 @@ export default function CompletarPerfilPage() {
       ...prev,
       [field]: (prev[field] || []).filter((_, i) => i !== index),
     }));
+
+    clearFieldErrorsByPrefix(field);
   };
 
   const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -247,22 +395,29 @@ export default function CompletarPerfilPage() {
 
     try {
       setLoading(true);
-      const formDataUpload = new FormData();
-      formDataUpload.append('photo', file);
-      formDataUpload.append('userId', userId);
+
+      const photoBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(new Error('No se pudo leer la imagen seleccionada'));
+        reader.readAsDataURL(file);
+      });
 
       const response = await fetch('/api/upload/profile-photo', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-        body: formDataUpload,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({ photoBase64 }),
       });
 
       if (!response.ok) throw new Error('Error al subir foto');
 
       const data = await response.json();
-      handleChange('photoUrl', data.photoUrl);
+      handleChange('photoUrl', data?.data?.photoUrl || data?.photoUrl || '');
       setSuccess('Foto subida correctamente');
-    } catch (err) {
+    } catch {
       setError('Error al subir la foto');
     } finally {
       setLoading(false);
@@ -281,15 +436,17 @@ export default function CompletarPerfilPage() {
       setFieldErrors({});
 
       // Convertir phone a número si existe
+      const sanitizedFormData = sanitizeProfileData(formData);
+
       const dataToValidate = {
-        ...formData,
-        phone: formData.phone ? String(formData.phone) : '',
-        yearsOfExperience: formData.yearsOfExperience || undefined,
-        consultationFee: formData.consultationFee || undefined,
+        ...sanitizedFormData,
+        phone: sanitizedFormData.phone ? String(sanitizedFormData.phone).trim() : '',
+        yearsOfExperience: sanitizedFormData.yearsOfExperience || undefined,
+        consultationFee: sanitizedFormData.consultationFee || undefined,
       };
 
       // Validar con Zod según el rol
-      const schema = normalizeRole(userRole) === 'SPECIALIST'
+      const schema = isSpecialistFlow
         ? completeSpecialistProfileSchema
         : completeAdminProfileSchema;
       const result = schema.safeParse(dataToValidate);
@@ -306,7 +463,8 @@ export default function CompletarPerfilPage() {
         // Mostrar primer error en el alert
         const firstError = result.error.errors[0];
         if (firstError) {
-          setError(`⚠️ ${firstError.path.join('.')}: ${firstError.message}`);
+          const firstPath = firstError.path.join('.');
+          setError(`⚠️ ${formatFieldPathLabel(firstPath)}: ${firstError.message}`);
         }
         setLoading(false);
         return;
@@ -333,17 +491,30 @@ export default function CompletarPerfilPage() {
 
       // Actualizar localStorage
       if (respResult.success && respResult.data) {
-        const updatedUser = {
-          id: respResult.data.id,
-          email: respResult.data.email,
-          firstName: respResult.data.firstName,
-          lastName: respResult.data.lastName,
-          role: respResult.data.role,
-          phone: respResult.data.phone,
-          isActive: true,
-          isNew: respResult.data.isNew
-        };
-        localStorage.setItem('user', JSON.stringify(updatedUser));
+        const profileResp = await fetch('/api/auth/me', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (profileResp.ok) {
+          const profileJson = await profileResp.json();
+          if (profileJson?.data) {
+            localStorage.setItem('user', JSON.stringify(profileJson.data));
+          }
+        } else {
+          const updatedUser = {
+            id: respResult.data.id,
+            email: respResult.data.email,
+            firstName: respResult.data.firstName,
+            lastName: respResult.data.lastName,
+            role: respResult.data.role,
+            phone: respResult.data.phone,
+            isActive: true,
+            isNew: respResult.data.isNew
+          };
+          localStorage.setItem('user', JSON.stringify(updatedUser));
+        }
         window.dispatchEvent(new Event('user-updated'));
       }
 
@@ -553,7 +724,7 @@ export default function CompletarPerfilPage() {
         );
 
       case 3: // Información Profesional (solo especialistas)
-        if (normalizeRole(userRole) !== 'SPECIALIST') {
+        if (!isSpecialistFlow) {
           return (
             <Grid container spacing={3}>
               <Grid item xs={12}>
@@ -652,7 +823,7 @@ export default function CompletarPerfilPage() {
         );
 
       case 4: // Formación y Experiencia (solo especialistas)
-        if (normalizeRole(userRole) !== 'SPECIALIST') return null;
+        if (!isSpecialistFlow) return null;
         return (
           <Box>
             {/* Formación Académica */}
@@ -665,6 +836,8 @@ export default function CompletarPerfilPage() {
                     label="Título/Grado"
                     value={item.degree || ''}
                     onChange={(e) => updateArrayItem('academicFormation', index, 'degree', e.target.value)}
+                    error={Boolean(getFieldError(`academicFormation.${index}.degree`))}
+                    helperText={getFieldError(`academicFormation.${index}.degree`) || ''}
                   />
                 </Grid>
                 <Grid item xs={12} sm={4}>
@@ -673,6 +846,8 @@ export default function CompletarPerfilPage() {
                     label="Institución"
                     value={item.institution || ''}
                     onChange={(e) => updateArrayItem('academicFormation', index, 'institution', e.target.value)}
+                    error={Boolean(getFieldError(`academicFormation.${index}.institution`))}
+                    helperText={getFieldError(`academicFormation.${index}.institution`) || ''}
                   />
                 </Grid>
                 <Grid item xs={10} sm={2}>
@@ -681,7 +856,9 @@ export default function CompletarPerfilPage() {
                     type="number"
                     label="Año"
                     value={item.year || ''}
-                    onChange={(e) => updateArrayItem('academicFormation', index, 'year', parseInt(e.target.value))}
+                    onChange={(e) => updateArrayItem('academicFormation', index, 'year', toNumberOrUndefined(e.target.value))}
+                    error={Boolean(getFieldError(`academicFormation.${index}.year`))}
+                    helperText={getFieldError(`academicFormation.${index}.year`) || ''}
                   />
                 </Grid>
                 <Grid item xs={2} sm={1}>
@@ -705,6 +882,8 @@ export default function CompletarPerfilPage() {
                     label="Certificación"
                     value={item.title || ''}
                     onChange={(e) => updateArrayItem('certifications', index, 'title', e.target.value)}
+                    error={Boolean(getFieldError(`certifications.${index}.title`))}
+                    helperText={getFieldError(`certifications.${index}.title`) || ''}
                   />
                 </Grid>
                 <Grid item xs={12} sm={4}>
@@ -713,6 +892,8 @@ export default function CompletarPerfilPage() {
                     label="Emisor"
                     value={item.issuer || ''}
                     onChange={(e) => updateArrayItem('certifications', index, 'issuer', e.target.value)}
+                    error={Boolean(getFieldError(`certifications.${index}.issuer`))}
+                    helperText={getFieldError(`certifications.${index}.issuer`) || ''}
                   />
                 </Grid>
                 <Grid item xs={10} sm={2}>
@@ -721,7 +902,9 @@ export default function CompletarPerfilPage() {
                     type="number"
                     label="Año"
                     value={item.year || ''}
-                    onChange={(e) => updateArrayItem('certifications', index, 'year', parseInt(e.target.value))}
+                    onChange={(e) => updateArrayItem('certifications', index, 'year', toNumberOrUndefined(e.target.value))}
+                    error={Boolean(getFieldError(`certifications.${index}.year`))}
+                    helperText={getFieldError(`certifications.${index}.year`) || ''}
                   />
                 </Grid>
                 <Grid item xs={2} sm={1}>
@@ -745,6 +928,8 @@ export default function CompletarPerfilPage() {
                     label="Curso"
                     value={item.title || ''}
                     onChange={(e) => updateArrayItem('courses', index, 'title', e.target.value)}
+                    error={Boolean(getFieldError(`courses.${index}.title`))}
+                    helperText={getFieldError(`courses.${index}.title`) || ''}
                   />
                 </Grid>
                 <Grid item xs={12} sm={4}>
@@ -753,6 +938,8 @@ export default function CompletarPerfilPage() {
                     label="Institución"
                     value={item.institution || ''}
                     onChange={(e) => updateArrayItem('courses', index, 'institution', e.target.value)}
+                    error={Boolean(getFieldError(`courses.${index}.institution`))}
+                    helperText={getFieldError(`courses.${index}.institution`) || ''}
                   />
                 </Grid>
                 <Grid item xs={10} sm={2}>
@@ -761,7 +948,9 @@ export default function CompletarPerfilPage() {
                     type="number"
                     label="Año"
                     value={item.year || ''}
-                    onChange={(e) => updateArrayItem('courses', index, 'year', parseInt(e.target.value))}
+                    onChange={(e) => updateArrayItem('courses', index, 'year', toNumberOrUndefined(e.target.value))}
+                    error={Boolean(getFieldError(`courses.${index}.year`))}
+                    helperText={getFieldError(`courses.${index}.year`) || ''}
                   />
                 </Grid>
                 <Grid item xs={2} sm={1}>
@@ -790,6 +979,8 @@ export default function CompletarPerfilPage() {
                     label="Cargo/Posición"
                     value={item.position || ''}
                     onChange={(e) => updateArrayItem('trajectory', index, 'position', e.target.value)}
+                    error={Boolean(getFieldError(`trajectory.${index}.position`))}
+                    helperText={getFieldError(`trajectory.${index}.position`) || ''}
                   />
                 </Grid>
                 <Grid item xs={12} sm={4}>
@@ -798,6 +989,8 @@ export default function CompletarPerfilPage() {
                     label="Institución"
                     value={item.institution || ''}
                     onChange={(e) => updateArrayItem('trajectory', index, 'institution', e.target.value)}
+                    error={Boolean(getFieldError(`trajectory.${index}.institution`))}
+                    helperText={getFieldError(`trajectory.${index}.institution`) || ''}
                   />
                 </Grid>
                 <Grid item xs={5} sm={1.5}>
@@ -806,7 +999,9 @@ export default function CompletarPerfilPage() {
                     type="number"
                     label="Desde"
                     value={item.startYear || ''}
-                    onChange={(e) => updateArrayItem('trajectory', index, 'startYear', parseInt(e.target.value))}
+                    onChange={(e) => updateArrayItem('trajectory', index, 'startYear', toNumberOrUndefined(e.target.value))}
+                    error={Boolean(getFieldError(`trajectory.${index}.startYear`))}
+                    helperText={getFieldError(`trajectory.${index}.startYear`) || ''}
                   />
                 </Grid>
                 <Grid item xs={5} sm={1.5}>
@@ -816,7 +1011,9 @@ export default function CompletarPerfilPage() {
                     label="Hasta"
                     placeholder="Actual"
                     value={item.endYear || ''}
-                    onChange={(e) => updateArrayItem('trajectory', index, 'endYear', parseInt(e.target.value) || undefined)}
+                    onChange={(e) => updateArrayItem('trajectory', index, 'endYear', toNumberOrUndefined(e.target.value))}
+                    error={Boolean(getFieldError(`trajectory.${index}.endYear`))}
+                    helperText={getFieldError(`trajectory.${index}.endYear`) || ''}
                   />
                 </Grid>
                 <Grid item xs={2} sm={1}>
@@ -833,7 +1030,7 @@ export default function CompletarPerfilPage() {
         );
 
       case 5: // Foto de Perfil (solo especialistas)
-        if (normalizeRole(userRole) !== 'SPECIALIST') return null;
+        if (!isSpecialistFlow) return null;
         return (
           <Box textAlign="center">
             <Typography variant="h6" gutterBottom>Foto de Perfil Profesional</Typography>
@@ -842,9 +1039,11 @@ export default function CompletarPerfilPage() {
             </Typography>
 
             <Box display="flex" justifyContent="center" mb={3}>
-              <Avatar
-                src={formData.photoUrl}
-                sx={{ width: 200, height: 200, border: '4px solid', borderColor: 'primary.main' }}
+              <ClinicAvatar
+                firstName={formData.firstName}
+                lastName={formData.lastName}
+                photoUrl={formData.photoUrl}
+                sx={{ width: 200, height: 200, border: '4px solid', borderColor: 'primary.main', fontSize: '3.5rem' }}
               />
             </Box>
 

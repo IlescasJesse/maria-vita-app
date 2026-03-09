@@ -291,6 +291,25 @@ export const updateUser = async (
       }
     });
 
+    if (role === 'SPECIALIST' && existingUser.role !== 'SPECIALIST') {
+      const specialistExists = await prisma.specialist.findUnique({
+        where: { userId: id },
+        select: { id: true }
+      });
+
+      if (!specialistExists) {
+        await prisma.specialist.create({
+          data: {
+            userId: id,
+            fullName: `${updatedUser.firstName || ''} ${updatedUser.lastName || ''}`.trim() || 'Especialista',
+            specialty: 'Por definir',
+            licenseNumber: `PEND-${id.slice(0, 8).toUpperCase()}`,
+            isAvailable: true,
+          }
+        });
+      }
+    }
+
     // Registrar actividad (no bloquear respuesta si MongoDB falla)
     try {
       await ActivityLog.create({
