@@ -5,12 +5,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Grid, Paper, Box, Typography, Card, CardContent, Stack, Chip, Divider, CircularProgress, TextField, Button, Alert } from '@mui/material';
+import { Grid, Paper, Box, Typography, Card, CardContent, Stack, Chip, Divider, CircularProgress, TextField, Button, Alert, IconButton } from '@mui/material';
 import PeopleIcon from '@mui/icons-material/People';
 import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import ScienceIcon from '@mui/icons-material/Science';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import AddIcon from '@mui/icons-material/Add';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { useAuth } from '@/hooks/useAuth';
 import ClinicAvatar from '@/components/ClinicAvatar';
 
@@ -37,6 +39,8 @@ interface SpecialistProfileEditData {
   yearsOfExperience: string;
   consultationFee: string;
   biography: string;
+  courses: Array<{ title: string; institution: string; year: string }>;
+  certifications: Array<{ title: string; issuer: string; year: string }>;
 }
 
 interface StatCardProps {
@@ -102,6 +106,8 @@ export default function OverviewModule() {
     yearsOfExperience: '',
     consultationFee: '',
     biography: '',
+    courses: [],
+    certifications: [],
   });
   const isSpecialist = user?.role === 'SPECIALIST';
 
@@ -126,6 +132,18 @@ export default function OverviewModule() {
   };
 
   const fillEditData = (profile: SpecialistProfileSummary) => {
+    const normalizedCourses = (profile.courses || []).map((course) => ({
+      title: course.title || '',
+      institution: course.institution || '',
+      year: course.year !== undefined && course.year !== null ? String(course.year) : '',
+    }));
+
+    const normalizedCertifications = (profile.certifications || []).map((certification) => ({
+      title: certification.title || '',
+      issuer: certification.issuer || '',
+      year: certification.year !== undefined && certification.year !== null ? String(certification.year) : '',
+    }));
+
     setEditData({
       specialty: profile.specialty || '',
       licenseNumber: profile.licenseNumber || '',
@@ -137,7 +155,57 @@ export default function OverviewModule() {
         ? String(profile.consultationFee)
         : '',
       biography: profile.biography || '',
+      courses: normalizedCourses,
+      certifications: normalizedCertifications,
     });
+  };
+
+  const updateCourse = (index: number, field: 'title' | 'institution' | 'year', value: string) => {
+    setEditData((prev) => {
+      const nextCourses = [...prev.courses];
+      if (nextCourses[index]) {
+        nextCourses[index] = { ...nextCourses[index], [field]: value };
+      }
+      return { ...prev, courses: nextCourses };
+    });
+  };
+
+  const addCourse = () => {
+    setEditData((prev) => ({
+      ...prev,
+      courses: [...prev.courses, { title: '', institution: '', year: String(new Date().getFullYear()) }],
+    }));
+  };
+
+  const removeCourse = (index: number) => {
+    setEditData((prev) => ({
+      ...prev,
+      courses: prev.courses.filter((_, i) => i !== index),
+    }));
+  };
+
+  const updateCertification = (index: number, field: 'title' | 'issuer' | 'year', value: string) => {
+    setEditData((prev) => {
+      const nextCertifications = [...prev.certifications];
+      if (nextCertifications[index]) {
+        nextCertifications[index] = { ...nextCertifications[index], [field]: value };
+      }
+      return { ...prev, certifications: nextCertifications };
+    });
+  };
+
+  const addCertification = () => {
+    setEditData((prev) => ({
+      ...prev,
+      certifications: [...prev.certifications, { title: '', issuer: '', year: String(new Date().getFullYear()) }],
+    }));
+  };
+
+  const removeCertification = (index: number) => {
+    setEditData((prev) => ({
+      ...prev,
+      certifications: prev.certifications.filter((_, i) => i !== index),
+    }));
   };
 
   const loadProfile = async () => {
@@ -201,6 +269,31 @@ export default function OverviewModule() {
 
     const yearsOfExperience = parseNumberish(editData.yearsOfExperience);
     const consultationFee = parseNumberish(editData.consultationFee);
+    const courses = editData.courses
+      .map((course) => ({
+        title: course.title.trim(),
+        institution: course.institution.trim(),
+        year: parseNumberish(course.year),
+      }))
+      .filter((course) => course.title || course.institution || course.year !== undefined)
+      .map((course) => ({
+        title: course.title,
+        institution: course.institution,
+        year: course.year ?? new Date().getFullYear(),
+      }));
+
+    const certifications = editData.certifications
+      .map((certification) => ({
+        title: certification.title.trim(),
+        issuer: certification.issuer.trim(),
+        year: parseNumberish(certification.year),
+      }))
+      .filter((certification) => certification.title || certification.issuer || certification.year !== undefined)
+      .map((certification) => ({
+        title: certification.title,
+        issuer: certification.issuer,
+        year: certification.year ?? new Date().getFullYear(),
+      }));
 
     const payload = {
       specialty: editData.specialty.trim(),
@@ -209,6 +302,8 @@ export default function OverviewModule() {
       yearsOfExperience,
       consultationFee,
       biography: editData.biography.trim() || null,
+      courses,
+      certifications,
       fullName: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || specialistProfile.fullName || 'Especialista',
     };
 
@@ -389,6 +484,94 @@ export default function OverviewModule() {
                             value={editData.biography}
                             onChange={(e) => setEditData(prev => ({ ...prev, biography: e.target.value }))}
                           />
+                        </Grid>
+
+                        <Grid item xs={12}>
+                          <Divider sx={{ my: 1 }} />
+                          <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 1 }}>
+                            Cursos
+                          </Typography>
+                          {editData.courses.map((course, index) => (
+                            <Grid container spacing={1} key={`course-${index}`} sx={{ mb: 1 }}>
+                              <Grid item xs={12} md={5}>
+                                <TextField
+                                  fullWidth
+                                  label="Curso"
+                                  value={course.title}
+                                  onChange={(e) => updateCourse(index, 'title', e.target.value)}
+                                />
+                              </Grid>
+                              <Grid item xs={12} md={4}>
+                                <TextField
+                                  fullWidth
+                                  label="Institución"
+                                  value={course.institution}
+                                  onChange={(e) => updateCourse(index, 'institution', e.target.value)}
+                                />
+                              </Grid>
+                              <Grid item xs={9} md={2}>
+                                <TextField
+                                  fullWidth
+                                  type="number"
+                                  label="Año"
+                                  value={course.year}
+                                  onChange={(e) => updateCourse(index, 'year', e.target.value)}
+                                />
+                              </Grid>
+                              <Grid item xs={3} md={1} sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                <IconButton color="error" onClick={() => removeCourse(index)}>
+                                  <DeleteIcon />
+                                </IconButton>
+                              </Grid>
+                            </Grid>
+                          ))}
+                          <Button variant="outlined" startIcon={<AddIcon />} onClick={addCourse} sx={{ mt: 1 }}>
+                            Agregar curso
+                          </Button>
+                        </Grid>
+
+                        <Grid item xs={12}>
+                          <Divider sx={{ my: 1 }} />
+                          <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 1 }}>
+                            Certificaciones
+                          </Typography>
+                          {editData.certifications.map((certification, index) => (
+                            <Grid container spacing={1} key={`certification-${index}`} sx={{ mb: 1 }}>
+                              <Grid item xs={12} md={5}>
+                                <TextField
+                                  fullWidth
+                                  label="Certificación"
+                                  value={certification.title}
+                                  onChange={(e) => updateCertification(index, 'title', e.target.value)}
+                                />
+                              </Grid>
+                              <Grid item xs={12} md={4}>
+                                <TextField
+                                  fullWidth
+                                  label="Emisor"
+                                  value={certification.issuer}
+                                  onChange={(e) => updateCertification(index, 'issuer', e.target.value)}
+                                />
+                              </Grid>
+                              <Grid item xs={9} md={2}>
+                                <TextField
+                                  fullWidth
+                                  type="number"
+                                  label="Año"
+                                  value={certification.year}
+                                  onChange={(e) => updateCertification(index, 'year', e.target.value)}
+                                />
+                              </Grid>
+                              <Grid item xs={3} md={1} sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                <IconButton color="error" onClick={() => removeCertification(index)}>
+                                  <DeleteIcon />
+                                </IconButton>
+                              </Grid>
+                            </Grid>
+                          ))}
+                          <Button variant="outlined" startIcon={<AddIcon />} onClick={addCertification} sx={{ mt: 1 }}>
+                            Agregar certificación
+                          </Button>
                         </Grid>
                       </Grid>
                     ) : (
