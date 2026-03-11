@@ -4,7 +4,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Grid, Paper, Box, Typography, Card, CardContent, Stack, Chip, Divider, CircularProgress, TextField, Button, Alert, IconButton } from '@mui/material';
 import PeopleIcon from '@mui/icons-material/People';
 import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
@@ -41,6 +41,8 @@ interface SpecialistProfileEditData {
   biography: string;
   courses: Array<{ title: string; institution: string; year: string }>;
   certifications: Array<{ title: string; issuer: string; year: string }>;
+  academicFormation: Array<{ degree: string; institution: string; year: string }>;
+  trajectory: Array<{ position: string; institution: string; startYear: string; endYear: string }>;
 }
 
 interface StatCardProps {
@@ -50,6 +52,19 @@ interface StatCardProps {
   color: string;
   trend?: string;
 }
+
+const normalizeJsonArray = <T,>(value: unknown): T[] => {
+  if (Array.isArray(value)) return value as T[];
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? (parsed as T[]) : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+};
 
 function StatCard({ title, value, icon, color, trend }: StatCardProps) {
   return (
@@ -108,21 +123,10 @@ export default function OverviewModule() {
     biography: '',
     courses: [],
     certifications: [],
+    academicFormation: [],
+    trajectory: [],
   });
   const isSpecialist = user?.role === 'SPECIALIST';
-
-  const normalizeJsonArray = <T,>(value: unknown): T[] => {
-    if (Array.isArray(value)) return value as T[];
-    if (typeof value === 'string') {
-      try {
-        const parsed = JSON.parse(value);
-        return Array.isArray(parsed) ? (parsed as T[]) : [];
-      } catch {
-        return [];
-      }
-    }
-    return [];
-  };
 
   const parseNumberish = (value: string): number | undefined => {
     const cleaned = String(value || '').trim();
@@ -131,7 +135,7 @@ export default function OverviewModule() {
     return Number.isFinite(parsed) ? parsed : undefined;
   };
 
-  const fillEditData = (profile: SpecialistProfileSummary) => {
+  const fillEditData = useCallback((profile: SpecialistProfileSummary) => {
     const normalizedCourses = (profile.courses || []).map((course) => ({
       title: course.title || '',
       institution: course.institution || '',
@@ -142,6 +146,19 @@ export default function OverviewModule() {
       title: certification.title || '',
       issuer: certification.issuer || '',
       year: certification.year !== undefined && certification.year !== null ? String(certification.year) : '',
+    }));
+
+    const normalizedAcademicFormation = (profile.academicFormation || []).map((formation) => ({
+      degree: formation.degree || '',
+      institution: formation.institution || '',
+      year: formation.year !== undefined && formation.year !== null ? String(formation.year) : '',
+    }));
+
+    const normalizedTrajectory = (profile.trajectory || []).map((item) => ({
+      position: item.position || '',
+      institution: item.institution || '',
+      startYear: item.startYear !== undefined && item.startYear !== null ? String(item.startYear) : '',
+      endYear: item.endYear !== undefined && item.endYear !== null ? String(item.endYear) : '',
     }));
 
     setEditData({
@@ -157,8 +174,10 @@ export default function OverviewModule() {
       biography: profile.biography || '',
       courses: normalizedCourses,
       certifications: normalizedCertifications,
+      academicFormation: normalizedAcademicFormation,
+      trajectory: normalizedTrajectory,
     });
-  };
+  }, []);
 
   const updateCourse = (index: number, field: 'title' | 'institution' | 'year', value: string) => {
     setEditData((prev) => {
@@ -208,7 +227,59 @@ export default function OverviewModule() {
     }));
   };
 
-  const loadProfile = async () => {
+  const updateAcademicFormation = (index: number, field: 'degree' | 'institution' | 'year', value: string) => {
+    setEditData((prev) => {
+      const nextAcademicFormation = [...prev.academicFormation];
+      if (nextAcademicFormation[index]) {
+        nextAcademicFormation[index] = { ...nextAcademicFormation[index], [field]: value };
+      }
+      return { ...prev, academicFormation: nextAcademicFormation };
+    });
+  };
+
+  const addAcademicFormation = () => {
+    setEditData((prev) => ({
+      ...prev,
+      academicFormation: [...prev.academicFormation, { degree: '', institution: '', year: String(new Date().getFullYear()) }],
+    }));
+  };
+
+  const removeAcademicFormation = (index: number) => {
+    setEditData((prev) => ({
+      ...prev,
+      academicFormation: prev.academicFormation.filter((_, i) => i !== index),
+    }));
+  };
+
+  const updateTrajectory = (
+    index: number,
+    field: 'position' | 'institution' | 'startYear' | 'endYear',
+    value: string
+  ) => {
+    setEditData((prev) => {
+      const nextTrajectory = [...prev.trajectory];
+      if (nextTrajectory[index]) {
+        nextTrajectory[index] = { ...nextTrajectory[index], [field]: value };
+      }
+      return { ...prev, trajectory: nextTrajectory };
+    });
+  };
+
+  const addTrajectory = () => {
+    setEditData((prev) => ({
+      ...prev,
+      trajectory: [...prev.trajectory, { position: '', institution: '', startYear: String(new Date().getFullYear()), endYear: '' }],
+    }));
+  };
+
+  const removeTrajectory = (index: number) => {
+    setEditData((prev) => ({
+      ...prev,
+      trajectory: prev.trajectory.filter((_, i) => i !== index),
+    }));
+  };
+
+  const loadProfile = useCallback(async () => {
     try {
       setLoadingSpecialistProfile(true);
       setSpecialistError('');
@@ -249,7 +320,7 @@ export default function OverviewModule() {
     } finally {
       setLoadingSpecialistProfile(false);
     }
-  };
+  }, [fillEditData]);
 
   const handleSaveSpecialistProfile = async () => {
     if (!specialistProfile?.id) {
@@ -295,6 +366,34 @@ export default function OverviewModule() {
         year: certification.year ?? new Date().getFullYear(),
       }));
 
+    const academicFormation = editData.academicFormation
+      .map((formation) => ({
+        degree: formation.degree.trim(),
+        institution: formation.institution.trim(),
+        year: parseNumberish(formation.year),
+      }))
+      .filter((formation) => formation.degree || formation.institution || formation.year !== undefined)
+      .map((formation) => ({
+        degree: formation.degree,
+        institution: formation.institution,
+        year: formation.year ?? new Date().getFullYear(),
+      }));
+
+    const trajectory = editData.trajectory
+      .map((item) => ({
+        position: item.position.trim(),
+        institution: item.institution.trim(),
+        startYear: parseNumberish(item.startYear),
+        endYear: parseNumberish(item.endYear),
+      }))
+      .filter((item) => item.position || item.institution || item.startYear !== undefined || item.endYear !== undefined)
+      .map((item) => ({
+        position: item.position,
+        institution: item.institution,
+        startYear: item.startYear ?? new Date().getFullYear(),
+        endYear: item.endYear,
+      }));
+
     const payload = {
       specialty: editData.specialty.trim(),
       licenseNumber: editData.licenseNumber.trim(),
@@ -304,6 +403,8 @@ export default function OverviewModule() {
       biography: editData.biography.trim() || null,
       courses,
       certifications,
+      academicFormation,
+      trajectory,
       fullName: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || specialistProfile.fullName || 'Especialista',
     };
 
@@ -343,7 +444,7 @@ export default function OverviewModule() {
     if (!isSpecialist) return;
 
     loadProfile();
-  }, [isSpecialist]);
+  }, [isSpecialist, loadProfile]);
 
   return (
     <Box>
@@ -573,6 +674,103 @@ export default function OverviewModule() {
                             Agregar certificación
                           </Button>
                         </Grid>
+
+                        <Grid item xs={12}>
+                          <Divider sx={{ my: 1 }} />
+                          <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 1 }}>
+                            Formación académica
+                          </Typography>
+                          {editData.academicFormation.map((formation, index) => (
+                            <Grid container spacing={1} key={`formation-${index}`} sx={{ mb: 1 }}>
+                              <Grid item xs={12} md={5}>
+                                <TextField
+                                  fullWidth
+                                  label="Título / Grado"
+                                  value={formation.degree}
+                                  onChange={(e) => updateAcademicFormation(index, 'degree', e.target.value)}
+                                />
+                              </Grid>
+                              <Grid item xs={12} md={4}>
+                                <TextField
+                                  fullWidth
+                                  label="Institución"
+                                  value={formation.institution}
+                                  onChange={(e) => updateAcademicFormation(index, 'institution', e.target.value)}
+                                />
+                              </Grid>
+                              <Grid item xs={9} md={2}>
+                                <TextField
+                                  fullWidth
+                                  type="number"
+                                  label="Año"
+                                  value={formation.year}
+                                  onChange={(e) => updateAcademicFormation(index, 'year', e.target.value)}
+                                />
+                              </Grid>
+                              <Grid item xs={3} md={1} sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                <IconButton color="error" onClick={() => removeAcademicFormation(index)}>
+                                  <DeleteIcon />
+                                </IconButton>
+                              </Grid>
+                            </Grid>
+                          ))}
+                          <Button variant="outlined" startIcon={<AddIcon />} onClick={addAcademicFormation} sx={{ mt: 1 }}>
+                            Agregar formación
+                          </Button>
+                        </Grid>
+
+                        <Grid item xs={12}>
+                          <Divider sx={{ my: 1 }} />
+                          <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 1 }}>
+                            Trayectoria profesional
+                          </Typography>
+                          {editData.trajectory.map((item, index) => (
+                            <Grid container spacing={1} key={`trajectory-${index}`} sx={{ mb: 1 }}>
+                              <Grid item xs={12} md={4}>
+                                <TextField
+                                  fullWidth
+                                  label="Puesto"
+                                  value={item.position}
+                                  onChange={(e) => updateTrajectory(index, 'position', e.target.value)}
+                                />
+                              </Grid>
+                              <Grid item xs={12} md={4}>
+                                <TextField
+                                  fullWidth
+                                  label="Institución"
+                                  value={item.institution}
+                                  onChange={(e) => updateTrajectory(index, 'institution', e.target.value)}
+                                />
+                              </Grid>
+                              <Grid item xs={6} md={1.5}>
+                                <TextField
+                                  fullWidth
+                                  type="number"
+                                  label="Desde"
+                                  value={item.startYear}
+                                  onChange={(e) => updateTrajectory(index, 'startYear', e.target.value)}
+                                />
+                              </Grid>
+                              <Grid item xs={6} md={1.5}>
+                                <TextField
+                                  fullWidth
+                                  type="number"
+                                  label="Hasta"
+                                  value={item.endYear}
+                                  onChange={(e) => updateTrajectory(index, 'endYear', e.target.value)}
+                                />
+                              </Grid>
+                              <Grid item xs={12} md={1} sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                <IconButton color="error" onClick={() => removeTrajectory(index)}>
+                                  <DeleteIcon />
+                                </IconButton>
+                              </Grid>
+                            </Grid>
+                          ))}
+                          <Button variant="outlined" startIcon={<AddIcon />} onClick={addTrajectory} sx={{ mt: 1 }}>
+                            Agregar trayectoria
+                          </Button>
+                        </Grid>
                       </Grid>
                     ) : (
                       <Stack spacing={1.5}>
@@ -604,6 +802,75 @@ export default function OverviewModule() {
                       <Chip size="small" color="success" label={`Certificaciones: ${specialistProfile?.certifications?.length || 0}`} />
                       <Chip size="small" color="info" label={`Trayectoria: ${specialistProfile?.trajectory?.length || 0}`} />
                     </Stack>
+
+                    {!isEditingSpecialistProfile && (
+                      <Grid container spacing={2} sx={{ mt: 1 }}>
+                        <Grid item xs={12} md={6}>
+                          <Paper variant="outlined" sx={{ p: 2, height: '100%' }}>
+                            <Typography variant="subtitle2" sx={{ mb: 1 }}>Cursos</Typography>
+                            {(specialistProfile?.courses || []).length === 0 ? (
+                              <Typography variant="body2" color="text.secondary">Sin cursos registrados</Typography>
+                            ) : (
+                              <Stack spacing={1}>
+                                {(specialistProfile?.courses || []).map((course, index) => (
+                                  <Typography key={`view-course-${index}`} variant="body2" color="text.secondary">
+                                    {course.title || 'Curso'} · {course.institution || 'Institución'} · {course.year || 'Año'}
+                                  </Typography>
+                                ))}
+                              </Stack>
+                            )}
+                          </Paper>
+                        </Grid>
+                        <Grid item xs={12} md={6}>
+                          <Paper variant="outlined" sx={{ p: 2, height: '100%' }}>
+                            <Typography variant="subtitle2" sx={{ mb: 1 }}>Certificaciones</Typography>
+                            {(specialistProfile?.certifications || []).length === 0 ? (
+                              <Typography variant="body2" color="text.secondary">Sin certificaciones registradas</Typography>
+                            ) : (
+                              <Stack spacing={1}>
+                                {(specialistProfile?.certifications || []).map((certification, index) => (
+                                  <Typography key={`view-cert-${index}`} variant="body2" color="text.secondary">
+                                    {certification.title || 'Certificación'} · {certification.issuer || 'Emisor'} · {certification.year || 'Año'}
+                                  </Typography>
+                                ))}
+                              </Stack>
+                            )}
+                          </Paper>
+                        </Grid>
+                        <Grid item xs={12} md={6}>
+                          <Paper variant="outlined" sx={{ p: 2, height: '100%' }}>
+                            <Typography variant="subtitle2" sx={{ mb: 1 }}>Formación académica</Typography>
+                            {(specialistProfile?.academicFormation || []).length === 0 ? (
+                              <Typography variant="body2" color="text.secondary">Sin formación registrada</Typography>
+                            ) : (
+                              <Stack spacing={1}>
+                                {(specialistProfile?.academicFormation || []).map((formation, index) => (
+                                  <Typography key={`view-formation-${index}`} variant="body2" color="text.secondary">
+                                    {formation.degree || 'Título'} · {formation.institution || 'Institución'} · {formation.year || 'Año'}
+                                  </Typography>
+                                ))}
+                              </Stack>
+                            )}
+                          </Paper>
+                        </Grid>
+                        <Grid item xs={12} md={6}>
+                          <Paper variant="outlined" sx={{ p: 2, height: '100%' }}>
+                            <Typography variant="subtitle2" sx={{ mb: 1 }}>Trayectoria profesional</Typography>
+                            {(specialistProfile?.trajectory || []).length === 0 ? (
+                              <Typography variant="body2" color="text.secondary">Sin trayectoria registrada</Typography>
+                            ) : (
+                              <Stack spacing={1}>
+                                {(specialistProfile?.trajectory || []).map((item, index) => (
+                                  <Typography key={`view-trajectory-${index}`} variant="body2" color="text.secondary">
+                                    {item.position || 'Puesto'} · {item.institution || 'Institución'} · {item.startYear || 'Inicio'} - {item.endYear || 'Actual'}
+                                  </Typography>
+                                ))}
+                              </Stack>
+                            )}
+                          </Paper>
+                        </Grid>
+                      </Grid>
+                    )}
 
                     {specialistProfile?.biography && (
                       <Box sx={{ mt: 2 }}>

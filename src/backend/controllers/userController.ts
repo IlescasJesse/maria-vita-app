@@ -240,6 +240,11 @@ export const updateUser = async (
     }
 
     const { id } = req.params;
+    if (!id) {
+      errorResponse(res, 'ID de usuario inválido', 400, 'BAD_REQUEST');
+      return;
+    }
+    const userId = id;
     const {
       role,
       suffix,
@@ -254,7 +259,7 @@ export const updateUser = async (
 
     // Verificar que el usuario existe
     const existingUser = await prisma.user.findUnique({
-      where: { id }
+      where: { id: userId }
     });
 
     if (!existingUser) {
@@ -274,7 +279,7 @@ export const updateUser = async (
 
     // Actualizar usuario
     const updatedUser = await prisma.user.update({
-      where: { id },
+      where: { id: userId },
       data: updateData,
       select: {
         id: true,
@@ -293,17 +298,17 @@ export const updateUser = async (
 
     if (role === 'SPECIALIST' && existingUser.role !== 'SPECIALIST') {
       const specialistExists = await prisma.specialist.findUnique({
-        where: { userId: id },
+        where: { userId },
         select: { id: true }
       });
 
       if (!specialistExists) {
         await prisma.specialist.create({
           data: {
-            userId: id,
+            userId,
             fullName: `${updatedUser.firstName || ''} ${updatedUser.lastName || ''}`.trim() || 'Especialista',
             specialty: 'Por definir',
-            licenseNumber: `PEND-${id.slice(0, 8).toUpperCase()}`,
+            licenseNumber: `PEND-${userId.slice(0, 8).toUpperCase()}`,
             isAvailable: true,
           }
         });
@@ -318,7 +323,7 @@ export const updateUser = async (
         action: 'UPDATE',
         module: 'USERS',
         entityType: 'user',
-        entityId: id,
+        entityId: userId,
         metadata: {
           updatedFields: Object.keys(updateData),
           updatedBy: req.user.email
