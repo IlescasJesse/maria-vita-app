@@ -24,9 +24,11 @@ cd "$PROJECT_DIR" || { echo "❌ Error: No se encuentra el directorio del proyec
 
 BACKEND_PORT=$(grep -E '^BACKEND_PORT=' "$ENV_FILE" 2>/dev/null | tail -n 1 | cut -d '=' -f2- | tr -d '"' | tr -d "'" | xargs)
 FRONTEND_PORT=$(grep -E '^PORT=' "$ENV_FILE" 2>/dev/null | tail -n 1 | cut -d '=' -f2- | tr -d '"' | tr -d "'" | xargs)
+BACKEND_INTERNAL_URL=$(grep -E '^BACKEND_INTERNAL_URL=' "$ENV_FILE" 2>/dev/null | tail -n 1 | cut -d '=' -f2- | tr -d '"' | tr -d "'" | xargs)
 
 BACKEND_PORT=${BACKEND_PORT:-$BACKEND_PORT_DEFAULT}
 FRONTEND_PORT=${FRONTEND_PORT:-$FRONTEND_PORT_DEFAULT}
+BACKEND_INTERNAL_URL=${BACKEND_INTERNAL_URL:-http://127.0.0.1:${BACKEND_PORT}/api}
 
 # Detener servicios
 bash ./stop.sh
@@ -40,7 +42,7 @@ echo ""
 echo "▶️  Iniciando servicios..."
 
 if [ "$USE_PM2" = true ]; then
-	PORT=$FRONTEND_PORT pm2 start ecosystem.config.cjs --env production
+	BACKEND_PORT=$BACKEND_PORT BACKEND_HOST=0.0.0.0 BACKEND_INTERNAL_URL=$BACKEND_INTERNAL_URL PORT=$FRONTEND_PORT pm2 start ecosystem.config.cjs --env production --update-env
 	pm2 save
 	BACKEND_PID=$(pm2 pid maria-vita-backend)
 	FRONTEND_PID=$(pm2 pid maria-vita-frontend)

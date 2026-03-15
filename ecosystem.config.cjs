@@ -6,7 +6,9 @@ module.exports = {
             script: 'npm',
             args: 'run backend:start',
             env_production: {
-                NODE_ENV: 'production'
+                NODE_ENV: 'production',
+                BACKEND_HOST: '0.0.0.0',
+                BACKEND_PORT: '5000'
             },
             autorestart: true,
             max_restarts: 10,
@@ -23,7 +25,8 @@ module.exports = {
             args: 'start',
             env_production: {
                 NODE_ENV: 'production',
-                PORT: '3000'
+                PORT: '3000',
+                BACKEND_INTERNAL_URL: 'http://127.0.0.1:5000/api'
             },
             autorestart: true,
             max_restarts: 10,
