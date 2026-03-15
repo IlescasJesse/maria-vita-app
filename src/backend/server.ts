@@ -15,27 +15,34 @@ import { connectDatabases, disconnectDatabases, checkDatabasesHealth } from './c
 import routes from './routes';
 import { errorHandler } from './middlewares/errorHandler';
 
-// Cargar variables de entorno desde .env.local
-// Try multiple paths to ensure we find the file
-const possiblePaths = [
-  path.join(__dirname, '../../.env.local'),  // From src/backend/server.ts
-  path.join(__dirname, '../../../.env.local'),   // Fallback
-  path.resolve('.env.local'),
-  path.resolve(process.cwd(), '.env.local')
+const environment = process.env.NODE_ENV || 'development';
+
+// Cargar variables de entorno en un orden compatible con desarrollo y producción.
+const candidateEnvFiles = [
+  `.env.${environment}.local`,
+  '.env.local',
+  `.env.${environment}`,
+  '.env'
 ];
+
+const possiblePaths = candidateEnvFiles.flatMap((fileName) => ([
+  path.join(__dirname, `../../${fileName}`),
+  path.join(__dirname, `../../../${fileName}`),
+  path.resolve(fileName),
+  path.resolve(process.cwd(), fileName)
+]));
 
 let envLoaded = false;
 for (const envPath of possiblePaths) {
   if (fs.existsSync(envPath)) {
     console.log(`[ENV] Loading from: ${envPath}`);
-    config({ path: envPath });
+    config({ path: envPath, override: false });
     envLoaded = true;
-    break;
   }
 }
 
 if (!envLoaded) {
-  console.warn(`[ENV] ⚠ .env.local not found in any expected location`);
+  console.warn(`[ENV] ⚠ No se encontró archivo .env para entorno ${environment}`);
   config(); // Fallback to default behavior
 }
 
@@ -47,6 +54,52 @@ console.log(`[ENV] REPLICATE_API_TOKEN: ${process.env.REPLICATE_API_TOKEN ? '✓
 
 const app: Application = express();
 const PORT = process.env.BACKEND_PORT || 5000;
+const HOST = process.env.BACKEND_HOST || '0.0.0.0';
+const isDevelopment = environment === 'development';
+
+const allowedOrigins = (process.env.FRONTEND_URLS || process.env.FRONTEND_URL || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+if (allowedOrigins.length === 0) {
+  allowedOrigins.push(
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://0.0.0.0:3000'
+  );
+}
+
+const isPrivateIpv4Host = (host: string) => {
+  if (/^10\./.test(host)) return true;
+  if (/^192\.168\./.test(host)) return true;
+
+  const match = host.match(/^172\.(\d{1,3})\./);
+  if (!match) return false;
+
+  const secondOctet = Number(match[1]);
+  return secondOctet >= 16 && secondOctet <= 31;
+};
+
+const isDevelopmentOriginAllowed = (origin: string) => {
+  if (!isDevelopment) {
+    return false;
+  }
+
+  try {
+    const parsedOrigin = new URL(origin);
+    const { hostname, port, protocol } = parsedOrigin;
+
+    const isHttpProtocol = protocol === 'http:' || protocol === 'https:';
+    const isLocalHost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '0.0.0.0';
+    const isLanHost = isPrivateIpv4Host(hostname);
+    const isCommonDevPort = port === '' || port === '3000' || port === '3001';
+
+    return isHttpProtocol && isCommonDevPort && (isLocalHost || isLanHost);
+  } catch {
+    return false;
+  }
+};
 
 // ============================================
 // MIDDLEWARES GLOBALES
@@ -60,7 +113,24 @@ app.use(helmet({
 
 // CORS para permitir requests desde el frontend
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: (origin, callback) => {
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    if (isDevelopmentOriginAllowed(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error(`Origen no permitido por CORS: ${origin}`));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -88,7 +158,7 @@ if (process.env.NODE_ENV === 'development') {
 app.get('/health', async (_req, res) => {
   try {
     const dbHealth = await checkDatabasesHealth();
-    
+
     res.json({
       status: dbHealth.overall ? 'healthy' : 'degraded',
       timestamp: new Date().toISOString(),
@@ -155,18 +225,19 @@ app.use(errorHandler);
 async function startServer(): Promise<void> {
   try {
     console.log('🚀 Iniciando servidor Maria Vita...');
-    
+
     // Conectar bases de datos
     await connectDatabases();
-    
+
     // Iniciar servidor HTTP
-    app.listen(PORT, () => {
-      console.log(`✅ Servidor backend corriendo en http://localhost:${PORT}`);
-      console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`🔗 Health check: http://localhost:${PORT}/health`);
-      console.log(`📡 API base: http://localhost:${PORT}/api`);
+    app.listen(Number(PORT), HOST, () => {
+      console.log(`✅ Servidor backend corriendo en http://${HOST}:${PORT}`);
+      console.log(`📊 Environment: ${environment}`);
+      console.log(`🌐 Orígenes permitidos: ${allowedOrigins.join(', ')}`);
+      console.log(`🔗 Health check: http://${HOST}:${PORT}/health`);
+      console.log(`📡 API base: http://${HOST}:${PORT}/api`);
     });
-    
+
   } catch (error) {
     console.error('❌ Error al iniciar el servidor:', error);
     process.exit(1);
@@ -183,7 +254,7 @@ async function startServer(): Promise<void> {
 async function gracefulShutdown(signal: string): Promise<void> {
   console.log(`\n⚠️ Señal de cierre recibida (${signal})`);
   console.log('🔌 Cerrando conexiones...');
-  
+
   try {
     await disconnectDatabases();
     console.log('✅ Servidor cerrado correctamente');

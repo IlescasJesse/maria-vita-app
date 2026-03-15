@@ -56,6 +56,9 @@ const createUserValidation = [
   body('tempPassword')
     .optional()
     .isLength({ min: 6 }).withMessage('La contraseña temporal debe tener al menos 6 caracteres'),
+  body('adminPermissions')
+    .optional()
+    .isArray().withMessage('Los permisos administrativos deben ser un arreglo'),
   validate
 ];
 
@@ -118,6 +121,9 @@ const updateUserValidation = [
       }
       throw new Error('El teléfono debe ser numérico');
     }),
+  body('adminPermissions')
+    .optional()
+    .isArray().withMessage('Los permisos administrativos deben ser un arreglo'),
   validate
 ];
 

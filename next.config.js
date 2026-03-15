@@ -1,4 +1,6 @@
 /** @type {import('next').NextConfig} */
+const backendBaseUrl = process.env.BACKEND_INTERNAL_URL || process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:5000/api';
+
 const nextConfig = {
   // Configuración de React estricto para detectar problemas
   reactStrictMode: true,
@@ -18,7 +20,7 @@ const nextConfig = {
 
   // Variables de entorno públicas (accesibles en el cliente)
   env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api',
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || '/api',
   },
 
   // Configuración de Turbopack (Next.js 16+)
@@ -60,7 +62,7 @@ const nextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: 'http://localhost:5000/api/:path*',
+        destination: `${backendBaseUrl.replace(/\/$/, '')}/:path*`,
       },
     ];
   },

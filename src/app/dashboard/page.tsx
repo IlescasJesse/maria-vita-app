@@ -8,6 +8,9 @@
 import { useState } from 'react';
 import { Box, AppBar, Toolbar, Typography, IconButton, Stack } from '@mui/material';
 import LogoutIcon from '@mui/icons-material/Logout';
+import MenuIcon from '@mui/icons-material/Menu';
+import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import { useAuth } from '@/hooks/useAuth';
 import Sidebar from '@/components/dashboard/Sidebar';
 import ClinicAvatar from '@/components/ClinicAvatar';
@@ -15,19 +18,21 @@ import ClinicAvatar from '@/components/ClinicAvatar';
 // Importar todos los módulos
 import OverviewModule from '@/components/dashboard/modules/OverviewModule';
 import UsersModule from '@/components/dashboard/modules/UsersModule';
-import SpecialistsModule from '@/components/dashboard/modules/SpecialistsModule';
 import AppointmentsModule from '@/components/dashboard/modules/AppointmentsModule';
 import StudiesModule from '@/components/dashboard/modules/StudiesModule';
 import ReportsModule from '@/components/dashboard/modules/ReportsModule';
 import AnalyticsModule from '@/components/dashboard/modules/AnalyticsModule';
 import BillingModule from '@/components/dashboard/modules/BillingModule';
-import AdminsModule from '@/components/dashboard/modules/AdminsModule';
 import DatabaseModule from '@/components/dashboard/modules/DatabaseModule';
 import SettingsModule from '@/components/dashboard/modules/SettingsModule';
 
 export default function DashboardPage() {
   const { user, isLoading, isAuthenticated, logout } = useAuth();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [activeModule, setActiveModule] = useState('overview');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const userPhotoUrl = (user as any)?.specialist?.photoUrl || (user as any)?.photoUrl;
 
   // Sin verificaciones de isNew - el login ya manejó el routing
@@ -57,8 +62,6 @@ export default function DashboardPage() {
         return <OverviewModule />;
       case 'users':
         return <UsersModule />;
-      case 'specialists':
-        return <SpecialistsModule />;
       case 'appointments':
         return <AppointmentsModule />;
       case 'studies':
@@ -69,8 +72,6 @@ export default function DashboardPage() {
         return <AnalyticsModule />;
       case 'billing':
         return <BillingModule />;
-      case 'admins':
-        return <AdminsModule />;
       case 'database':
         return <DatabaseModule />;
       case 'settings':
@@ -83,7 +84,14 @@ export default function DashboardPage() {
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh' }}>
       {/* Sidebar */}
-      <Sidebar activeModule={activeModule} onModuleChange={setActiveModule} />
+      <Sidebar
+        activeModule={activeModule}
+        onModuleChange={setActiveModule}
+        isOpen={isSidebarOpen}
+        mobileOpen={mobileSidebarOpen}
+        onToggle={() => setIsSidebarOpen((previous) => !previous)}
+        onCloseMobile={() => setMobileSidebarOpen(false)}
+      />
 
       {/* Contenido Principal */}
       <Box
@@ -92,6 +100,7 @@ export default function DashboardPage() {
           flexGrow: 1,
           minHeight: '100vh',
           backgroundColor: 'grey.50',
+          width: '100%',
         }}
       >
         {/* AppBar Superior */}
@@ -106,6 +115,23 @@ export default function DashboardPage() {
           }}
         >
           <Toolbar>
+            <IconButton
+              color="inherit"
+              edge="start"
+              onClick={() => {
+                if (isMobile) {
+                  setMobileSidebarOpen(true);
+                  return;
+                }
+
+                setIsSidebarOpen((previous) => !previous);
+              }}
+              sx={{ mr: 2 }}
+              title="Mostrar u ocultar menú"
+            >
+              <MenuIcon />
+            </IconButton>
+
             <Typography variant="h6" sx={{ flexGrow: 1 }}>
               Panel de Control
             </Typography>

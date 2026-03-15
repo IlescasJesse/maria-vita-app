@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Box,
@@ -78,7 +78,7 @@ export default function CompletarPerfilPage() {
 
   const normalizeRole = (role?: string) => String(role || '').trim().toUpperCase();
 
-  const getRoleFromToken = (token?: string | null) => {
+  const getRoleFromToken = useCallback((token?: string | null) => {
     if (!token) return '';
     try {
       const payloadPart = token.split('.')[1];
@@ -90,7 +90,7 @@ export default function CompletarPerfilPage() {
     } catch {
       return '';
     }
-  };
+  }, []);
 
   // Solo verificar autenticación básica - NO redirects automáticos
   useEffect(() => {
@@ -129,8 +129,7 @@ export default function CompletarPerfilPage() {
       }
 
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
-        const response = await fetch(`${apiUrl}/auth/me`, {
+        const response = await fetch('/api/auth/me', {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -181,7 +180,7 @@ export default function CompletarPerfilPage() {
     };
 
     initializeUser();
-  }, [router]);
+  }, [getRoleFromToken, router]);
 
   const isSpecialistFlow = normalizeRole(userRole) === 'SPECIALIST' || hasSpecialistProfile;
 

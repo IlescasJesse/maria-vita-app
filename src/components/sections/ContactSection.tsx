@@ -105,9 +105,7 @@ export default function ContactSection() {
         return;
       }
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
-
-      const response = await fetch(`${apiUrl}/contact/send`, {
+      const response = await fetch('/api/contact/send', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

@@ -58,8 +58,25 @@ export const getAllUsers = async (
         dateOfBirth: true,
         isActive: true,
         isNew: true,
+        isAdmin: true,
+        adminPermissions: true,
         createdAt: true,
         updatedAt: true,
+        specialist: {
+          select: {
+            id: true,
+            fullName: true,
+            specialty: true,
+            licenseNumber: true,
+            assignedOffice: true,
+            biography: true,
+            yearsOfExperience: true,
+            photoUrl: true,
+            consultationFee: true,
+            isAvailable: true,
+            updatedAt: true,
+          }
+        }
       },
       orderBy: { createdAt: 'desc' }
     });
@@ -119,6 +136,7 @@ export const createUser = async (
       lastName,
       phone,
       dateOfBirth,
+      adminPermissions,
       tempPassword,
       isActive = true
     } = req.body;
@@ -150,6 +168,8 @@ export const createUser = async (
         lastName: lastName?.trim() || '',
         phone: phone || null,
         dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
+        isAdmin: ['ADMIN', 'SUPERADMIN'].includes(role),
+        adminPermissions: role === 'ADMIN' && Array.isArray(adminPermissions) ? adminPermissions : undefined,
         isActive,
         isNew: true, // Todos los usuarios nuevos deben completar perfil
       },
@@ -162,9 +182,26 @@ export const createUser = async (
         role: true,
         phone: true,
         dateOfBirth: true,
+        isAdmin: true,
+        adminPermissions: true,
         isActive: true,
         isNew: true,
         createdAt: true,
+        specialist: {
+          select: {
+            id: true,
+            fullName: true,
+            specialty: true,
+            licenseNumber: true,
+            assignedOffice: true,
+            biography: true,
+            yearsOfExperience: true,
+            photoUrl: true,
+            consultationFee: true,
+            isAvailable: true,
+            updatedAt: true,
+          }
+        }
       }
     });
 
@@ -252,6 +289,7 @@ export const updateUser = async (
       lastName,
       phone,
       dateOfBirth,
+      adminPermissions,
       isActive
     } = req.body;
 
@@ -276,6 +314,15 @@ export const updateUser = async (
     if (phone !== undefined && phone !== '') updateData.phone = phone || null;
     if (dateOfBirth !== undefined) updateData.dateOfBirth = dateOfBirth ? new Date(dateOfBirth) : null;
     if (isActive !== undefined) updateData.isActive = isActive;
+    if (role) {
+      updateData.isAdmin = ['ADMIN', 'SUPERADMIN'].includes(role);
+      if (role !== 'ADMIN') {
+        updateData.adminPermissions = null;
+      }
+    }
+    if (adminPermissions !== undefined && (role === 'ADMIN' || existingUser.role === 'ADMIN')) {
+      updateData.adminPermissions = Array.isArray(adminPermissions) ? adminPermissions : null;
+    }
 
     // Actualizar usuario
     const updatedUser = await prisma.user.update({
@@ -290,9 +337,26 @@ export const updateUser = async (
         role: true,
         phone: true,
         dateOfBirth: true,
+        isAdmin: true,
+        adminPermissions: true,
         isActive: true,
         isNew: true,
         updatedAt: true,
+        specialist: {
+          select: {
+            id: true,
+            fullName: true,
+            specialty: true,
+            licenseNumber: true,
+            assignedOffice: true,
+            biography: true,
+            yearsOfExperience: true,
+            photoUrl: true,
+            consultationFee: true,
+            isAvailable: true,
+            updatedAt: true,
+          }
+        }
       }
     });
 
@@ -313,6 +377,31 @@ export const updateUser = async (
           }
         });
       }
+    }
+
+    if ((existingUser.role === 'SPECIALIST' || role === 'SPECIALIST') && updatedUser.specialist) {
+      const resolvedFirstName = updateData.firstName ?? updatedUser.firstName ?? existingUser.firstName;
+      const resolvedLastName = updateData.lastName ?? updatedUser.lastName ?? existingUser.lastName;
+      const nextFullName = `${resolvedFirstName || ''} ${resolvedLastName || ''}`.trim() || 'Especialista';
+
+      if (nextFullName !== updatedUser.specialist.fullName) {
+        await prisma.specialist.update({
+          where: { id: updatedUser.specialist.id },
+          data: {
+            fullName: nextFullName,
+          }
+        });
+
+        updatedUser.specialist.fullName = nextFullName;
+      }
+    }
+
+    if (existingUser.role === 'SPECIALIST' && role && role !== 'SPECIALIST') {
+      await prisma.specialist.deleteMany({
+        where: { userId }
+      });
+
+      updatedUser.specialist = null;
     }
 
     // Registrar actividad (no bloquear respuesta si MongoDB falla)

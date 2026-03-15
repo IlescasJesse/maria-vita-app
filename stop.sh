@@ -24,6 +24,7 @@ fi
 pkill -f "next start" && echo "✅ Procesos Next.js detenidos"
 pkill -f "node.*server.ts" && echo "✅ Procesos Node detenidos"
 pkill -f "ts-node.*server.ts" && echo "✅ Procesos TS-Node detenidos"
+pkill -f "npm run backend:start" && echo "✅ Backend de producción detenido"
 
 echo ""
 echo "✅ Todos los servicios han sido detenidos"

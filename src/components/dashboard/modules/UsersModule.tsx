@@ -1,1030 +1,1328 @@
 /**
- * Módulo de Gestión de Usuarios
+ * Módulo Unificado de Usuarios
+ * Consolida Especialistas, Pacientes y Administradores en una sola vista con tabs.
  */
 
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  MenuItem,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  IconButton,
-  Chip,
-  Alert,
-  Typography,
-  Grid,
-  FormControlLabel,
-  Checkbox,
-  Skeleton,
-  Backdrop,
-  CircularProgress,
-  InputBase,
-  FormHelperText,
+    Alert,
+    Avatar,
+    Backdrop,
+    Box,
+    Button,
+    Card,
+    CardActions,
+    CardContent,
+    Checkbox,
+    Chip,
+    CircularProgress,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogTitle,
+    Divider,
+    FormControlLabel,
+    FormGroup,
+    Grid,
+    IconButton,
+    InputAdornment,
+    MenuItem,
+    Paper,
+    Skeleton,
+    Stack,
+    Tab,
+    Tabs,
+    TextField,
+    Tooltip,
+    Typography,
 } from '@mui/material';
 import {
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  PersonAdd as PersonAddIcon,
+    CheckCircleOutline as CheckCircleOutlineIcon,
+    Delete as DeleteIcon,
+    LockPerson as LockPersonIcon,
+    Edit as EditIcon,
+    PersonAdd as PersonAddIcon,
+    Search as SearchIcon,
+    Visibility as VisibilityIcon,
 } from '@mui/icons-material';
 import { useOptimisticMutation } from '@/hooks/useOptimisticMutation';
+import { useAuth } from '@/hooks/useAuth';
 
+type UserRole = 'SUPERADMIN' | 'ADMIN' | 'SPECIALIST' | 'PATIENT' | 'RECEPTIONIST';
+type UserCategory = 'specialists' | 'patients' | 'admins';
 
-interface User {
-  id: string;
-  email: string;
-  role: string;
-  suffix?: string;
-  firstName: string;
-  lastName: string;
-  phone?: string;
-  isActive: boolean;
-  isNew: boolean;
-  createdAt: string;
+interface SpecialistSummary {
+    id: string;
+    fullName: string;
+    specialty: string;
+    licenseNumber: string;
+    assignedOffice?: string | null;
+    biography?: string | null;
+    yearsOfExperience?: number | null;
+    photoUrl?: string | null;
+    consultationFee?: number | string | null;
+    isAvailable: boolean;
+    updatedAt: string;
 }
 
-const roles = [
-  { value: 'ADMIN', label: 'Administrador' },
-  { value: 'SPECIALIST', label: 'Especialista' },
-  { value: 'RECEPTIONIST', label: 'Recepcionista' },
-  { value: 'PATIENT', label: 'Paciente' },
+interface UserRecord {
+    id: string;
+    email: string;
+    role: UserRole;
+    suffix?: string | null;
+    firstName: string;
+    lastName: string;
+    phone?: string | null;
+    dateOfBirth?: string | null;
+    isActive: boolean;
+    isNew: boolean;
+    isAdmin?: boolean;
+    adminPermissions?: string[] | null;
+    createdAt: string;
+    updatedAt?: string;
+    specialist?: SpecialistSummary | null;
+}
+
+interface FormState {
+    email: string;
+    role: Exclude<UserRole, 'SUPERADMIN'>;
+    suffix: string;
+    firstName: string;
+    lastName: string;
+    phone: string;
+    dateOfBirth: string;
+    isActive: boolean;
+    tempPassword: string;
+    adminPermissions: string[];
+}
+
+const roles: Array<{ value: Exclude<UserRole, 'SUPERADMIN'>; label: string }> = [
+    { value: 'ADMIN', label: 'Administrador' },
+    { value: 'SPECIALIST', label: 'Especialista' },
+    { value: 'RECEPTIONIST', label: 'Recepcionista' },
+    { value: 'PATIENT', label: 'Paciente' },
 ];
 
 const suffixes = ['Dr.', 'Dra.', 'Lic.', 'Ing.', 'Mtro.', 'Mtra.', 'C.P.', 'Enf.'];
 
-const adminPermissions = [
-  { label: 'Gestionar Usuarios', value: 'manageUsers' },
-  { label: 'Gestionar Especialistas', value: 'manageSpecialists' },
-  { label: 'Ver Reportes', value: 'manageReports' },
-  { label: 'Configuracion del Sistema', value: 'manageSettings' },
+const adminPermissionOptions = [
+    { label: 'Gestionar usuarios', value: 'manage_users' },
+    { label: 'Gestionar especialistas', value: 'manage_specialists' },
+    { label: 'Gestionar citas', value: 'manage_appointments' },
+    { label: 'Ver reportes', value: 'view_reports' },
+    { label: 'Gestionar configuración', value: 'manage_settings' },
 ];
 
-// Helper para renderizar email con estilos divididos
-const renderEmailWithStyle = (email: string) => {
-  const parts = email.split('@');
-  if (parts.length !== 2) return <span>{email}</span>;
-
-  return (
-    <Box component="span">
-      <Box component="span" sx={{ fontWeight: 500, color: 'text.primary' }}>
-        {parts[0]}
-      </Box>
-      <Box component="span" sx={{ fontWeight: 300, color: 'text.secondary', fontSize: '0.875em' }}>
-        @{parts[1]}
-      </Box>
-    </Box>
-  );
-};
-
-// Configuración de colores para roles con semántica asertiva
-const getRoleColor = (role: string): 'error' | 'warning' | 'info' | 'success' | 'primary' | 'secondary' | 'default' => {
-  switch (role) {
-    case 'SUPERADMIN': return 'error';      // Rojo: Máximo poder/peligro
-    case 'ADMIN': return 'warning';          // Naranja: Administración
-    case 'SPECIALIST': return 'info';        // Azul: Profesional médico
-    case 'STAFF': return 'primary';          // Púrpura: Personal de apoyo
-    case 'RECEPTIONIST': return 'primary';   // Púrpura: Recepcionista
-    case 'PATIENT': return 'secondary';      // Gris: Usuario estándar
-    default: return 'default';
-  }
-};
-
-export default function UsersModule() {
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [openDialog, setOpenDialog] = useState(false);
-  const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
-  const [userToDelete, setUserToDelete] = useState<User | null>(null);
-  const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-
-  const [formData, setFormData] = useState({
+const defaultFormState: FormState = {
     email: '',
     role: 'PATIENT',
     suffix: '',
     firstName: '',
     lastName: '',
     phone: '',
+    dateOfBirth: '',
     isActive: true,
     tempPassword: '',
-    adminPermissions: [] as string[],
-  });
+    adminPermissions: [],
+};
 
-  const [emailLocalPart, setEmailLocalPart] = useState('');
-  const { runOptimistic } = useOptimisticMutation();
+const renderEmailWithStyle = (email: string) => {
+    const parts = email.split('@');
 
-  const validateField = useCallback((field: string, value: string) => {
-    switch (field) {
-      case 'email': {
-        if (editingUser) return '';
-        const emailValue = (value || '').trim();
-        if (!emailValue) return 'El email es requerido';
-        if (emailValue.includes('@ADMIN') || emailValue.includes('@admin')) return '';
-        if (emailValue.includes('@')) {
-          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-          return emailRegex.test(emailValue) ? '' : 'Email no válido';
-        }
-        return '';
-      }
-      case 'role':
-        return value ? '' : 'El rol es requerido';
-      case 'tempPassword':
-        if (editingUser) return '';
-        if (!value) return 'La contraseña temporal es requerida';
-        return value.length >= 6 ? '' : 'La contraseña debe tener al menos 6 caracteres';
-      case 'firstName': {
-        const trimmed = value.trim();
-        if (!trimmed) return 'El nombre es requerido';
-        return trimmed.length >= 2 ? '' : 'El nombre debe tener al menos 2 caracteres';
-      }
-      case 'lastName':
-        return value.length <= 100 ? '' : 'Los apellidos no pueden superar 100 caracteres';
-      case 'phone':
-        return value && !/^\d+$/.test(value) ? 'El teléfono debe ser numérico' : '';
-      default:
-        return '';
+    if (parts.length !== 2) {
+        return <span>{email}</span>;
     }
-  }, [editingUser]);
 
-  useEffect(() => {
-    loadUsers();
-  }, []);
+    return (
+        <Box component="span">
+            <Box component="span" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                {parts[0]}
+            </Box>
+            <Box component="span" sx={{ fontWeight: 300, color: 'text.secondary', fontSize: '0.9em' }}>
+                @{parts[1]}
+            </Box>
+        </Box>
+    );
+};
 
-  const loadUsers = async () => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/users', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Error al cargar usuarios' }));
-        throw new Error(errorData.error?.message || errorData.message || 'Error al cargar usuarios');
-      }
-
-      const data = await response.json();
-      // Extraer el array de usuarios del objeto respuesta
-      setUsers(Array.isArray(data) ? data : data.data || []);
-      setError('');
-    } catch (err: any) {
-      setError(err.message || 'Error al cargar usuarios');
-    } finally {
-      setLoading(false);
+const getRoleColor = (role: UserRole) => {
+    switch (role) {
+        case 'SUPERADMIN':
+            return 'error' as const;
+        case 'ADMIN':
+            return 'warning' as const;
+        case 'SPECIALIST':
+            return 'info' as const;
+        case 'PATIENT':
+            return 'secondary' as const;
+        case 'RECEPTIONIST':
+            return 'primary' as const;
+        default:
+            return 'default' as const;
     }
-  };
+};
 
-  const handleOpenDialog = useCallback((user?: User) => {
-    setFieldErrors({});
-    if (user) {
-      setEditingUser(user);
-      const localPart = user.email.split('@')[0] || '';
-      setEmailLocalPart(localPart);
-      setFormData({
-        email: user.email,
-        role: user.role,
-        suffix: user.suffix || '',
-        firstName: user.firstName,
-        lastName: user.lastName || '',
-        phone: user.phone || '',
-        isActive: user.isActive,
-        tempPassword: '',
-        adminPermissions: [],
-      });
-    } else {
-      setEditingUser(null);
-      setEmailLocalPart('');
-      setFormData({
-        email: '',
-        role: 'PATIENT',
-        suffix: '',
-        firstName: '',
-        lastName: '',
-        phone: '',
-        isActive: true,
-        tempPassword: '',
-        adminPermissions: [],
-      });
+const getRoleLabel = (role: UserRole) => {
+    switch (role) {
+        case 'SUPERADMIN':
+            return 'Superadmin';
+        case 'ADMIN':
+            return 'Administrador';
+        case 'SPECIALIST':
+            return 'Especialista';
+        case 'PATIENT':
+            return 'Paciente';
+        case 'RECEPTIONIST':
+            return 'Recepcionista';
+        default:
+            return role;
     }
-    setOpenDialog(true);
-  }, []);
+};
 
-  const handleCloseDialog = useCallback(() => {
-    setOpenDialog(false);
-    setEditingUser(null);
-    setError('');
-    setFieldErrors({});
-  }, []);
+const formatDate = (value?: string | null) => {
+    if (!value) return 'No registrado';
 
-  const handleChange = useCallback((field: string, value: any) => {
-    setFieldErrors((prev) => ({ ...prev, [field]: '' }));
-    if (field === 'email') {
-      if (value.includes('@ADMIN') || value.includes('@admin')) {
-        setFormData(prev => ({ ...prev, [field]: value }));
-        setEmailLocalPart(value);
-        return;
-      }
-      const localPart = value.split('@')[0];
-      setEmailLocalPart(localPart);
-      if (value.includes('@')) {
-        setFormData(prev => ({ ...prev, [field]: `${localPart}@maria-vita.mx` }));
-      } else {
-        setFormData(prev => ({ ...prev, [field]: localPart }));
-      }
-    } else if (field === 'adminPermissions') {
-      setFormData(prev => ({ ...prev, [field]: value }));
-    } else {
-      setFormData(prev => ({ ...prev, [field]: value }));
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'No registrado';
+
+    return new Intl.DateTimeFormat('es-MX', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+    }).format(date);
+};
+
+const formatCurrency = (value?: number | string | null) => {
+    if (value === null || value === undefined || value === '') {
+        return 'No definido';
     }
-  }, []);
 
-  const handleBlur = useCallback((field: string, value: any) => {
-    const fieldValue = typeof value === 'string' ? value : String(value ?? '');
-    setFieldErrors((prev) => ({ ...prev, [field]: validateField(field, fieldValue) }));
-  }, [validateField]);
+    const numericValue = typeof value === 'string' ? Number(value) : value;
+    if (Number.isNaN(numericValue)) {
+        return 'No definido';
+    }
 
-  const handleSubmit = async () => {
-    try {
-      setError('');
-      setSaving(true);
-      setFieldErrors({});
-      const token = localStorage.getItem('token');
+    return new Intl.NumberFormat('es-MX', {
+        style: 'currency',
+        currency: 'MXN',
+        maximumFractionDigits: 0,
+    }).format(numericValue);
+};
 
-      const endpoint = editingUser
-        ? `/api/users/${editingUser.id}`
-        : '/api/users/create';
+const getUserFullName = (user: UserRecord) => {
+    const prefix = user.suffix ? `${user.suffix} ` : '';
+    const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+    return `${prefix}${fullName}`.trim() || user.email;
+};
 
-      const method = editingUser ? 'PUT' : 'POST';
+const getDefaultRoleByTab = (tab: UserCategory): Exclude<UserRole, 'SUPERADMIN'> => {
+    if (tab === 'specialists') return 'SPECIALIST';
+    if (tab === 'admins') return 'ADMIN';
+    return 'PATIENT';
+};
 
-      const nextFieldErrors: Record<string, string> = {};
+const getCreateLabelByTab = (tab: UserCategory) => {
+    if (tab === 'specialists') return 'Nuevo especialista';
+    if (tab === 'admins') return 'Nuevo administrador';
+    return 'Nuevo paciente';
+};
 
-      // Asegurar que el email tenga el dominio completo para emails normales
-      let finalEmail = formData.email;
-      if (!editingUser) {
-        if (!finalEmail) {
-          finalEmail = emailLocalPart;
+const getEditDialogTitle = (user: UserRecord | null) => {
+    if (!user) return 'Crear nuevo usuario';
+    if (user.role === 'ADMIN') return 'Gestionar administrador';
+    if (user.role === 'SPECIALIST') return 'Gestionar acceso del especialista';
+    if (user.role === 'PATIENT') return 'Gestionar acceso del paciente';
+    return 'Gestionar usuario';
+};
+
+export default function UsersModule() {
+    const { user, hasPermission, isSuperAdmin } = useAuth();
+    const { runOptimistic } = useOptimisticMutation();
+
+    const [users, setUsers] = useState<UserRecord[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
+    const [searchTerm, setSearchTerm] = useState('');
+    const [activeTab, setActiveTab] = useState<UserCategory>('specialists');
+    const [openDialog, setOpenDialog] = useState(false);
+    const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
+    const [openViewDialog, setOpenViewDialog] = useState(false);
+    const [editingUser, setEditingUser] = useState<UserRecord | null>(null);
+    const [selectedUser, setSelectedUser] = useState<UserRecord | null>(null);
+    const [userToDelete, setUserToDelete] = useState<UserRecord | null>(null);
+    const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+    const [formData, setFormData] = useState<FormState>(defaultFormState);
+
+    const canManageUsers = hasPermission('manage_users');
+    const canManageSpecialists = hasPermission('manage_specialists');
+    const canManageAdmins = hasPermission('manage_admins') || isSuperAdmin;
+
+    const canCreateInActiveTab = useMemo(() => {
+        if (activeTab === 'specialists') return canManageSpecialists;
+        if (activeTab === 'admins') return canManageAdmins;
+        return canManageUsers;
+    }, [activeTab, canManageAdmins, canManageSpecialists, canManageUsers]);
+
+    const createButtonLabel = useMemo(() => getCreateLabelByTab(activeTab), [activeTab]);
+
+    const availableTabs = useMemo(() => {
+        const tabs: Array<{ value: UserCategory; label: string; count: number }> = [];
+
+        if (canManageSpecialists) {
+            tabs.push({
+                value: 'specialists',
+                label: 'Especialistas',
+                count: users.filter((currentUser) => currentUser.role === 'SPECIALIST').length,
+            });
         }
 
-        if (!finalEmail) {
-          nextFieldErrors.email = 'El email es requerido';
-        } else if (!finalEmail.includes('@')) {
-          finalEmail = `${finalEmail}@maria-vita.mx`;
-        } else if (!finalEmail.includes('@ADMIN') && !finalEmail.includes('@admin') && !finalEmail.includes('@maria-vita.mx')) {
-          const localPart = finalEmail.split('@')[0];
-          finalEmail = `${localPart}@maria-vita.mx`;
+        if (canManageUsers) {
+            tabs.push({
+                value: 'patients',
+                label: 'Pacientes',
+                count: users.filter((currentUser) => currentUser.role === 'PATIENT').length,
+            });
         }
 
-        if (finalEmail) {
-          if (!finalEmail.includes('@ADMIN') && !finalEmail.includes('@admin')) {
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!emailRegex.test(finalEmail)) {
-              nextFieldErrors.email = 'Email no válido';
+        if (canManageAdmins) {
+            tabs.push({
+                value: 'admins',
+                label: 'Administradores',
+                count: users.filter((currentUser) => ['ADMIN', 'SUPERADMIN'].includes(currentUser.role)).length,
+            });
+        }
+
+        return tabs;
+    }, [canManageAdmins, canManageSpecialists, canManageUsers, users]);
+
+    useEffect(() => {
+        if (!availableTabs.some((tab) => tab.value === activeTab) && availableTabs[0]) {
+            setActiveTab(availableTabs[0].value);
+        }
+    }, [activeTab, availableTabs]);
+
+    const validateField = useCallback((field: keyof FormState, value: string) => {
+        switch (field) {
+            case 'email': {
+                if (editingUser) return '';
+                const emailValue = value.trim();
+
+                if (!emailValue) return 'El email es requerido';
+                if (emailValue.includes('@ADMIN') || emailValue.includes('@admin')) return '';
+
+                const finalEmail = emailValue.includes('@') ? emailValue : `${emailValue}@maria-vita.mx`;
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                return emailRegex.test(finalEmail) ? '' : 'Email no válido';
             }
-          }
+            case 'role':
+                return value ? '' : 'El rol es requerido';
+            case 'tempPassword':
+                if (editingUser) return '';
+                if (!value) return 'La contraseña temporal es requerida';
+                return value.length >= 6 ? '' : 'La contraseña debe tener al menos 6 caracteres';
+            case 'firstName': {
+                const trimmed = value.trim();
+                if (!trimmed) return 'El nombre es requerido';
+                return trimmed.length >= 2 ? '' : 'El nombre debe tener al menos 2 caracteres';
+            }
+            case 'lastName':
+                return value.trim().length <= 100 ? '' : 'Los apellidos no pueden superar 100 caracteres';
+            case 'phone':
+                return value && !/^\d+$/.test(value) ? 'El teléfono debe ser numérico' : '';
+            default:
+                return '';
         }
-      }
+    }, [editingUser]);
 
-      if (!formData.role) {
-        nextFieldErrors.role = 'El rol es requerido';
-      }
-
-      if (!editingUser && !formData.tempPassword) {
-        nextFieldErrors.tempPassword = 'La contraseña temporal es requerida';
-      }
-
-      const trimmedFirstName = formData.firstName.trim();
-      if (!trimmedFirstName) {
-        nextFieldErrors.firstName = 'El nombre es requerido';
-      } else if (trimmedFirstName.length < 2) {
-        nextFieldErrors.firstName = 'El nombre debe tener al menos 2 caracteres';
-      }
-
-      if (formData.lastName && formData.lastName.trim().length > 100) {
-        nextFieldErrors.lastName = 'Los apellidos no pueden superar 100 caracteres';
-      }
-
-      if (formData.phone && !/^\d+$/.test(formData.phone)) {
-        nextFieldErrors.phone = 'El teléfono debe ser numérico';
-      }
-
-      if (Object.values(nextFieldErrors).some(Boolean)) {
-        setFieldErrors(nextFieldErrors);
-        setSaving(false);
-        return;
-      }
-
-      const body: any = {
-        role: formData.role,
-        suffix: formData.suffix || null,
-        firstName: trimmedFirstName,
-        lastName: formData.lastName || '',
-        phone: formData.phone || '',
-        isActive: formData.isActive,
-      };
-
-      // Solo incluir email en creación (no se puede editar)
-      if (!editingUser) {
-        body.email = finalEmail;
-      }
-
-      // Solo incluir password en creación
-      if (!editingUser && formData.tempPassword) {
-        body.tempPassword = formData.tempPassword;
-      }
-
-      // Incluir permisos si es admin
-      if (formData.role === 'ADMIN' && formData.adminPermissions.length > 0) {
-        body.adminPermissions = formData.adminPermissions;
-      }
-
-      if (!editingUser) {
-        const optimisticId = `temp-${Date.now()}`;
-        const optimisticUser: User = {
-          id: optimisticId,
-          email: String(finalEmail),
-          role: formData.role,
-          suffix: formData.suffix || '',
-          firstName: trimmedFirstName,
-          lastName: formData.lastName || '',
-          phone: formData.phone || '',
-          isActive: formData.isActive,
-          isNew: true,
-          createdAt: new Date().toISOString(),
-        };
-
-        handleCloseDialog();
-
-        const optimisticResult = await runOptimistic({
-          applyOptimistic: () => {
-            setUsers((prev) => [optimisticUser, ...prev]);
-            return { optimisticId };
-          },
-          rollback: (context) => {
-            setUsers((prev) => prev.filter((user) => user.id !== context.optimisticId));
-          },
-          mutation: async () => {
-            const response = await fetch(endpoint, {
-              method,
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${token}`,
-              },
-              body: JSON.stringify(body),
+    const loadUsers = useCallback(async () => {
+        try {
+            setLoading(true);
+            const token = localStorage.getItem('token');
+            const response = await fetch('/api/users', {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
             });
 
-            const responseData = await response.json();
+            const data = await response.json().catch(() => ({ message: 'Error al cargar usuarios' }));
 
             if (!response.ok) {
-              if (Array.isArray(responseData?.error?.details)) {
-                const backendFieldErrors: Record<string, string> = {};
-                for (const detail of responseData.error.details) {
-                  if (detail?.field && detail?.message && !backendFieldErrors[detail.field]) {
-                    backendFieldErrors[detail.field] = detail.message;
-                  }
-                }
-                if (Object.keys(backendFieldErrors).length > 0) {
-                  setFieldErrors(backendFieldErrors);
-                }
-              }
-
-              throw new Error(responseData.error?.message || responseData.message || 'Error al guardar usuario');
+                throw new Error(data?.error?.message || data?.message || 'Error al cargar usuarios');
             }
 
-            return responseData;
-          },
-          onSuccess: (responseData, context) => {
-            const createdUser = responseData?.data;
-            if (createdUser?.id) {
-              setUsers((prev) => prev.map((user) => (user.id === context.optimisticId ? createdUser : user)));
-            }
-          },
-          onError: (submitError) => {
-            handleOpenDialog();
-            setError(submitError instanceof Error ? submitError.message : 'Error al guardar usuario');
-          },
+            setUsers(Array.isArray(data) ? data : data.data || []);
+            setError('');
+        } catch (requestError: unknown) {
+            setError(requestError instanceof Error ? requestError.message : 'Error al cargar usuarios');
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        loadUsers();
+    }, [loadUsers]);
+
+    const filteredUsers = useMemo(() => {
+        const normalizedSearch = searchTerm.trim().toLowerCase();
+
+        const categoryUsers = users.filter((currentUser) => {
+            if (activeTab === 'specialists') return currentUser.role === 'SPECIALIST';
+            if (activeTab === 'patients') return currentUser.role === 'PATIENT';
+            return currentUser.role === 'ADMIN' || currentUser.role === 'SUPERADMIN';
         });
 
-        if (!optimisticResult.ok) {
-          return;
+        if (!normalizedSearch) {
+            return categoryUsers;
         }
 
-        setSuccess('Usuario creado exitosamente');
-        loadUsers();
-        setTimeout(() => setSuccess(''), 5000);
-        return;
-      }
+        return categoryUsers.filter((currentUser) => {
+            const searchSource = [
+                currentUser.email,
+                currentUser.firstName,
+                currentUser.lastName,
+                currentUser.phone,
+                currentUser.specialist?.specialty,
+                currentUser.specialist?.licenseNumber,
+                currentUser.specialist?.assignedOffice,
+            ]
+                .filter(Boolean)
+                .join(' ')
+                .toLowerCase();
 
-      const existingUser = users.find((user) => user.id === editingUser.id);
-      if (!existingUser) {
-        throw new Error('Usuario no encontrado para actualizar');
-      }
+            return searchSource.includes(normalizedSearch);
+        });
+    }, [activeTab, searchTerm, users]);
 
-      const optimisticUpdatedUser: User = {
-        ...existingUser,
-        role: formData.role,
-        suffix: formData.suffix || '',
-        firstName: trimmedFirstName,
-        lastName: formData.lastName || '',
-        phone: formData.phone || '',
-        isActive: formData.isActive,
-      };
+    const canManageTargetUser = useCallback((targetUser: UserRecord) => {
+        if (targetUser.role === 'SPECIALIST') return canManageSpecialists;
+        if (targetUser.role === 'ADMIN' || targetUser.role === 'SUPERADMIN') return canManageAdmins;
+        return canManageUsers;
+    }, [canManageAdmins, canManageSpecialists, canManageUsers]);
 
-      handleCloseDialog();
+    const openCreateDialog = useCallback((role?: Exclude<UserRole, 'SUPERADMIN'>) => {
+        setEditingUser(null);
+        setFieldErrors({});
+        setFormData({
+            ...defaultFormState,
+            role: role || defaultFormState.role,
+        });
+        setOpenDialog(true);
+    }, []);
 
-      const optimisticEditResult = await runOptimistic({
-        applyOptimistic: () => {
-          setUsers((prev) => prev.map((user) => (user.id === editingUser.id ? optimisticUpdatedUser : user)));
-          return { previousUser: existingUser, userId: editingUser.id };
-        },
-        rollback: (context) => {
-          setUsers((prev) => prev.map((user) => (user.id === context.userId ? context.previousUser : user)));
-        },
-        mutation: async () => {
-          const response = await fetch(endpoint, {
-            method,
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify(body),
-          });
+    const openEditDialog = useCallback((targetUser: UserRecord) => {
+        setEditingUser(targetUser);
+        setFieldErrors({});
+        setFormData({
+            email: targetUser.email,
+            role: targetUser.role === 'SUPERADMIN' ? 'ADMIN' : targetUser.role,
+            suffix: targetUser.suffix || '',
+            firstName: targetUser.firstName,
+            lastName: targetUser.lastName || '',
+            phone: targetUser.phone || '',
+            dateOfBirth: targetUser.dateOfBirth ? targetUser.dateOfBirth.slice(0, 10) : '',
+            isActive: targetUser.isActive,
+            tempPassword: '',
+            adminPermissions: Array.isArray(targetUser.adminPermissions) ? targetUser.adminPermissions : [],
+        });
+        setOpenDialog(true);
+    }, []);
 
-          const responseData = await response.json();
+    const closeDialog = useCallback(() => {
+        if (saving) return;
 
-          if (!response.ok) {
-            if (Array.isArray(responseData?.error?.details)) {
-              const backendFieldErrors: Record<string, string> = {};
-              for (const detail of responseData.error.details) {
-                if (detail?.field && detail?.message && !backendFieldErrors[detail.field]) {
-                  backendFieldErrors[detail.field] = detail.message;
-                }
-              }
-              if (Object.keys(backendFieldErrors).length > 0) {
-                setFieldErrors(backendFieldErrors);
-              }
+        setOpenDialog(false);
+        setEditingUser(null);
+        setFieldErrors({});
+        setFormData(defaultFormState);
+    }, [saving]);
+
+    const handleChange = useCallback((field: keyof FormState, value: string | boolean | string[]) => {
+        setFieldErrors((previous) => ({ ...previous, [field]: '' }));
+        setFormData((previous) => ({ ...previous, [field]: value }));
+    }, []);
+
+    const handleBlur = useCallback((field: keyof FormState, value: string) => {
+        setFieldErrors((previous) => ({ ...previous, [field]: validateField(field, value) }));
+    }, [validateField]);
+
+    const handleSubmit = useCallback(async () => {
+        try {
+            setSaving(true);
+            setError('');
+            setFieldErrors({});
+
+            const nextFieldErrors: Record<string, string> = {};
+            const finalEmailInput = formData.email.trim();
+            const finalEmail = finalEmailInput && !finalEmailInput.includes('@')
+                ? `${finalEmailInput}@maria-vita.mx`
+                : finalEmailInput;
+
+            const fieldsToValidate: Array<keyof FormState> = ['email', 'role', 'firstName', 'lastName', 'phone'];
+            if (!editingUser) {
+                fieldsToValidate.push('tempPassword');
             }
 
-            throw new Error(responseData.error?.message || responseData.message || 'Error al guardar usuario');
-          }
+            fieldsToValidate.forEach((field) => {
+                const rawValue = field === 'email' ? finalEmail : String(formData[field] ?? '');
+                const validationMessage = validateField(field, rawValue);
+                if (validationMessage) {
+                    nextFieldErrors[field] = validationMessage;
+                }
+            });
 
-          return responseData;
-        },
-        onSuccess: (responseData, context) => {
-          const updatedUser = responseData?.data;
-          if (updatedUser?.id) {
-            setUsers((prev) => prev.map((user) => (user.id === context.userId ? updatedUser : user)));
-          }
-        },
-        onError: (submitError, context) => {
-          handleOpenDialog(context.previousUser);
-          setError(submitError instanceof Error ? submitError.message : 'Error al guardar usuario');
-        },
-      });
+            if (Object.keys(nextFieldErrors).length > 0) {
+                setFieldErrors(nextFieldErrors);
+                return;
+            }
 
-      if (!optimisticEditResult.ok) {
-        return;
-      }
+            const payload = {
+                email: finalEmail,
+                role: formData.role,
+                suffix: formData.suffix || null,
+                firstName: formData.firstName.trim(),
+                lastName: formData.lastName.trim(),
+                phone: formData.phone.trim() || null,
+                dateOfBirth: formData.dateOfBirth || null,
+                isActive: formData.isActive,
+                tempPassword: formData.tempPassword || undefined,
+                adminPermissions: formData.role === 'ADMIN' ? formData.adminPermissions : [],
+            };
 
-      setSuccess('Usuario actualizado exitosamente');
-      loadUsers();
+            const token = localStorage.getItem('token');
+            const endpoint = editingUser ? `/api/users/${editingUser.id}` : '/api/users/create';
+            const method = editingUser ? 'PUT' : 'POST';
 
-      setTimeout(() => setSuccess(''), 5000);
-    } catch (err: any) {
-      setError(err.message || 'Error al guardar usuario');
-    } finally {
-      setSaving(false);
-    }
-  };
+            if (!editingUser) {
+                const optimisticId = `temp-${Date.now()}`;
+                const optimisticUser: UserRecord = {
+                    id: optimisticId,
+                    email: finalEmail,
+                    role: formData.role,
+                    suffix: formData.suffix || null,
+                    firstName: formData.firstName.trim(),
+                    lastName: formData.lastName.trim(),
+                    phone: formData.phone.trim() || null,
+                    dateOfBirth: formData.dateOfBirth || null,
+                    isActive: formData.isActive,
+                    isNew: true,
+                    isAdmin: formData.role === 'ADMIN',
+                    adminPermissions: formData.role === 'ADMIN' ? formData.adminPermissions : [],
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                    specialist: formData.role === 'SPECIALIST'
+                        ? {
+                            id: `temp-specialist-${Date.now()}`,
+                            fullName: `${formData.firstName.trim()} ${formData.lastName.trim()}`.trim(),
+                            specialty: 'Por definir',
+                            licenseNumber: 'Pendiente',
+                            assignedOffice: null,
+                            biography: null,
+                            yearsOfExperience: null,
+                            photoUrl: null,
+                            consultationFee: null,
+                            isAvailable: true,
+                            updatedAt: new Date().toISOString(),
+                        }
+                        : null,
+                };
 
-  const handleDelete = async (userId: string) => {
-    try {
-      setDeleting(true);
-      const token = localStorage.getItem('token');
-      const previousUsers = [...users];
-      const deletedUser = previousUsers.find((user) => user.id === userId) || null;
-      const deletedIndex = previousUsers.findIndex((user) => user.id === userId);
+                closeDialog();
 
-      const optimisticDeleteResult = await runOptimistic({
-        applyOptimistic: () => {
-          setOpenDeleteDialog(false);
-          setUserToDelete(null);
-          setUsers((prev) => prev.filter((user) => user.id !== userId));
-          return { deletedUser, deletedIndex };
-        },
-        rollback: (context) => {
-          const userToRestore = context.deletedUser;
+                const result = await runOptimistic({
+                    applyOptimistic: () => {
+                        setUsers((previous) => [optimisticUser, ...previous]);
+                        return { optimisticId };
+                    },
+                    rollback: (context: { optimisticId: string }) => {
+                        setUsers((previous) => previous.filter((currentUser) => currentUser.id !== context.optimisticId));
+                    },
+                    mutation: async () => {
+                        const response = await fetch(endpoint, {
+                            method,
+                            headers: {
+                                'Content-Type': 'application/json',
+                                Authorization: `Bearer ${token}`,
+                            },
+                            body: JSON.stringify(payload),
+                        });
 
-          if (!userToRestore || context.deletedIndex < 0) {
-            setUsers(previousUsers);
-            return;
-          }
+                        const responseData = await response.json().catch(() => ({}));
 
-          setUsers((prev) => {
-            const restored = [...prev];
-            restored.splice(context.deletedIndex, 0, userToRestore);
-            return restored;
-          });
-        },
-        mutation: async () => {
-          const response = await fetch(`/api/users/${userId}`, {
-            method: 'DELETE',
-            headers: { Authorization: `Bearer ${token}` },
-          });
+                        if (!response.ok) {
+                            throw new Error(responseData?.error?.message || responseData?.message || 'No fue posible crear el usuario');
+                        }
 
-          const responseData = await response.json().catch(() => ({}));
+                        return responseData;
+                    },
+                    onSuccess: (responseData, context: { optimisticId: string }) => {
+                        if (responseData?.data?.id) {
+                            setUsers((previous) => previous.map((currentUser) => (
+                                currentUser.id === context.optimisticId ? responseData.data : currentUser
+                            )));
+                        }
 
-          if (!response.ok) {
-            throw new Error(responseData.error?.message || responseData.message || 'Error al eliminar usuario');
-          }
+                        loadUsers();
+                    },
+                    onError: (submitError) => {
+                        setError(submitError instanceof Error ? submitError.message : 'No fue posible crear el usuario');
+                        setOpenDialog(true);
+                    },
+                });
 
-          return responseData;
-        },
-        onError: (deleteError) => {
-          setError(deleteError instanceof Error ? deleteError.message : 'Error al eliminar usuario');
-        },
-      });
+                if (!result.ok) {
+                    return;
+                }
 
-      if (!optimisticDeleteResult.ok) {
-        return;
-      }
-
-      setSuccess('Usuario eliminado exitosamente');
-      loadUsers();
-      setTimeout(() => setSuccess(''), 5000);
-    } catch (err: any) {
-      setError(err.message || 'Error al eliminar usuario');
-      setOpenDeleteDialog(false);
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  const handleOpenDeleteDialog = useCallback((user: User) => {
-    setUserToDelete(user);
-    setOpenDeleteDialog(true);
-  }, []);
-
-  const handleCloseDeleteDialog = useCallback(() => {
-    if (!deleting) {
-      setOpenDeleteDialog(false);
-      setUserToDelete(null);
-    }
-  }, [deleting]);
-
-  const getRoleLabel = useCallback((role: string) => {
-    return roles.find(r => r.value === role)?.label || role;
-  }, []);
-
-  const filteredUsers = useMemo(
-    () => users.filter((user) => user.role !== 'SUPERADMIN'),
-    [users]
-  );
-
-  return (
-    <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h5" fontWeight="bold">
-          Gestión de Usuarios
-        </Typography>
-        <Button
-          variant="contained"
-          startIcon={<PersonAddIcon />}
-          onClick={() => handleOpenDialog()}
-        >
-          Crear Usuario
-        </Button>
-      </Box>
-      <Card>
-        <CardContent>
-          <TableContainer component={Paper} elevation={0}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell><strong>Email</strong></TableCell>
-                  <TableCell><strong>Nombre</strong></TableCell>
-                  <TableCell><strong>Rol</strong></TableCell>
-                  <TableCell><strong>Estado</strong></TableCell>
-                  <TableCell><strong>Perfil</strong></TableCell>
-                  <TableCell align="right"><strong>Acciones</strong></TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {loading ? (
-                  Array.from({ length: 5 }).map((_, index) => (
-                    <TableRow key={`skeleton-${index}`}>
-                      <TableCell><Skeleton variant="text" width="80%" /></TableCell>
-                      <TableCell><Skeleton variant="text" width="70%" /></TableCell>
-                      <TableCell><Skeleton variant="rounded" width={80} height={24} /></TableCell>
-                      <TableCell><Skeleton variant="rounded" width={70} height={24} /></TableCell>
-                      <TableCell><Skeleton variant="rounded" width={90} height={24} /></TableCell>
-                      <TableCell align="right">
-                        <Skeleton variant="circular" width={32} height={32} sx={{ display: 'inline-block', mr: 1 }} />
-                        <Skeleton variant="circular" width={32} height={32} sx={{ display: 'inline-block' }} />
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : filteredUsers.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} align="center">
-                      <Typography variant="body2" color="text.secondary" sx={{ py: 3 }}>
-                        No hay usuarios registrados
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredUsers.map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell>{renderEmailWithStyle(user.email)}</TableCell>
-                      <TableCell>
-                        {user.suffix && `${user.suffix} `}
-                        {user.firstName} {user.lastName}
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={getRoleLabel(user.role)}
-                          color={getRoleColor(user.role)}
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={user.isActive ? 'Activo' : 'Inactivo'}
-                          color={user.isActive ? 'success' : 'error'}
-                          size="small"
-                          sx={{
-                            fontWeight: 600,
-                            ...(user.isActive ? {} : { opacity: 0.8 })
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={user.isNew ? 'Incompleto' : 'Completo'}
-                          color={user.isNew ? 'warning' : 'success'}
-                          size="small"
-                          variant="outlined"
-                        />
-                      </TableCell>
-                      <TableCell align="right">
-                        <IconButton
-                          size="small"
-                          color="primary"
-                          onClick={() => handleOpenDialog(user)}
-                        >
-                          <EditIcon />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => handleOpenDeleteDialog(user)}
-                          disabled={user.role === 'SUPERADMIN'}
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </CardContent>
-      </Card>
-
-      {/* Dialog para Crear/Editar Usuario */}
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          {editingUser ? 'Editar Usuario' : 'Crear Nuevo Usuario'}
-        </DialogTitle>
-        <DialogContent>
-          {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
-          {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>}
-          <Box sx={{ pt: 3 }}>
-            <Grid container spacing={3}>
-              <Grid item xs={12}>
-                <Box>
-                  <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-                    Email <Typography component="span" color="error">*</Typography>
-                  </Typography>
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      border: '1.5px solid',
-                      borderColor: fieldErrors.email ? '#d32f2f' : '#ccc',
-                      borderRadius: '4px',
-                      transition: 'all 0.3s ease',
-                      overflow: 'hidden',
-                      backgroundColor: editingUser ? '#f5f5f5' : '#fff',
-                      '&:hover': !editingUser ? {
-                        borderColor: '#999',
-                      } : {},
-                      '&:focus-within': !editingUser ? {
-                        borderColor: '#00875F',
-                        borderWidth: '2.5px',
-                        boxShadow: '0 0 0 3px rgba(0, 135, 95, 0.1)',
-                      } : {},
-                    }}
-                  >
-                    <InputBase
-                      fullWidth
-                      placeholder="nombre.apellido"
-                      value={emailLocalPart}
-                      onChange={(e) => handleChange('email', e.target.value)}
-                      onBlur={(e) => handleBlur('email', e.target.value)}
-                      disabled={!!editingUser}
-                      sx={{
-                        flex: 1,
-                        px: 2,
-                        py: 1.5,
-                        fontSize: '1rem',
-                        '& input::placeholder': {
-                          color: '#999',
-                          opacity: 0.7,
-                        },
-                        '& input:disabled': {
-                          color: '#666',
-                          WebkitTextFillColor: '#666',
-                        },
-                      }}
-                    />
-                    {!emailLocalPart.includes('@') && (
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          px: 2,
-                          backgroundColor: '#E8F5F0',
-                          borderLeft: '1px solid #ccc',
-                          minWidth: 'auto',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        <Typography
-                          sx={{
-                            fontSize: '1rem',
-                            color: '#00875F',
-                            fontWeight: 500,
-                          }}
-                        >
-                          @maria-vita.mx
-                        </Typography>
-                      </Box>
-                    )}
-                  </Box>
-                  <FormHelperText
-                    error={Boolean(fieldErrors.email)}
-                    sx={{ mt: 1 }}
-                  >
-                    {fieldErrors.email
-                      ? fieldErrors.email
-                      : !editingUser && !emailLocalPart.includes('@')
-                        ? 'El dominio @maria-vita.mx se agregará automáticamente (excepto para @ADMIN)'
-                        : editingUser
-                          ? 'No se puede modificar el email de usuarios existentes'
-                          : ''}
-                  </FormHelperText>
-                </Box>
-              </Grid>
-
-              {!editingUser && (
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    required
-                    label="Contraseña Temporal"
-                    type="password"
-                    value={formData.tempPassword}
-                    onChange={(e) => handleChange('tempPassword', e.target.value)}
-                    onBlur={(e) => handleBlur('tempPassword', e.target.value)}
-                    error={Boolean(fieldErrors.tempPassword)}
-                    helperText={fieldErrors.tempPassword || 'El usuario deberá cambiarla al completar su perfil'}
-                    margin="normal"
-                  />
-                </Grid>
-              )}
-
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  required
-                  select
-                  label="Rol"
-                  value={formData.role}
-                  onChange={(e) => handleChange('role', e.target.value)}
-                  onBlur={(e) => handleBlur('role', e.target.value)}
-                  error={Boolean(fieldErrors.role)}
-                  helperText={fieldErrors.role || ''}
-                  margin="normal"
-                >
-                  {roles.map((role) => (
-                    <MenuItem key={role.value} value={role.value}>
-                      {role.label}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-
-              {formData.role === 'ADMIN' && (
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    select
-                    label="Permisos del Administrador"
-                    helperText="Selecciona los permisos que tendrá este administrador"
-                    SelectProps={{
-                      multiple: true,
-                    }}
-                    value={formData.adminPermissions}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      handleChange(
-                        'adminPermissions',
-                        typeof value === 'string' ? value.split(',') : value
-                      );
-                    }}
-                  >
-                    {adminPermissions.map((perm) => (
-                      <MenuItem key={perm.value} value={perm.value}>
-                        {perm.label}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                </Grid>
-              )}
-
-              <Grid item xs={12} sm={4}>
-                <TextField
-                  fullWidth
-                  select
-                  label="Sufijo"
-                  value={formData.suffix}
-                  onChange={(e) => handleChange('suffix', e.target.value)}
-                  margin="normal"
-                >
-                  <MenuItem value="">Ninguno</MenuItem>
-                  {suffixes.map((suffix) => (
-                    <MenuItem key={suffix} value={suffix}>
-                      {suffix}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-
-              <Grid item xs={12} sm={8}>
-                <TextField
-                  fullWidth
-                  required
-                  label="Nombre(s)"
-                  value={formData.firstName}
-                  onChange={(e) => handleChange('firstName', e.target.value)}
-                  onBlur={(e) => handleBlur('firstName', e.target.value)}
-                  error={Boolean(fieldErrors.firstName)}
-                  helperText={fieldErrors.firstName || 'Requerido'}
-                  margin="normal"
-                />
-              </Grid>
-
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Apellidos"
-                  value={formData.lastName}
-                  onChange={(e) => handleChange('lastName', e.target.value)}
-                  onBlur={(e) => handleBlur('lastName', e.target.value)}
-                  error={Boolean(fieldErrors.lastName)}
-                  helperText={fieldErrors.lastName || 'Opcional - puede completarlo después'}
-                  margin="normal"
-                />
-              </Grid>
-
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Teléfono"
-                  placeholder="555-123-4567"
-                  value={formData.phone}
-                  onChange={(e) => handleChange('phone', e.target.value)}
-                  onBlur={(e) => handleBlur('phone', e.target.value)}
-                  error={Boolean(fieldErrors.phone)}
-                  helperText={fieldErrors.phone || ''}
-                  margin="normal"
-                />
-              </Grid>
-
-              <Grid item xs={12}>
-                <Box sx={{ mt: 2, mb: 1 }}>
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={formData.isActive}
-                        onChange={(e) => handleChange('isActive', e.target.checked)}
-                      />
+                setSuccess('Usuario creado exitosamente');
+            } else {
+                const editPayload = editingUser.role === 'ADMIN'
+                    ? {
+                        isActive: formData.isActive,
+                        adminPermissions: formData.adminPermissions,
                     }
-                    label="Usuario Activo"
-                  />
+                    : {
+                        isActive: formData.isActive,
+                    };
+
+                const previousUser = editingUser;
+                const optimisticUser: UserRecord = {
+                    ...editingUser,
+                    isActive: formData.isActive,
+                    adminPermissions: editingUser.role === 'ADMIN' ? formData.adminPermissions : editingUser.adminPermissions,
+                };
+
+                closeDialog();
+
+                const result = await runOptimistic({
+                    applyOptimistic: () => {
+                        setUsers((previous) => previous.map((currentUser) => (
+                            currentUser.id === previousUser.id ? optimisticUser : currentUser
+                        )));
+                        return { previousUser };
+                    },
+                    rollback: (context: { previousUser: UserRecord }) => {
+                        setUsers((previous) => previous.map((currentUser) => (
+                            currentUser.id === context.previousUser.id ? context.previousUser : currentUser
+                        )));
+                    },
+                    mutation: async () => {
+                        const response = await fetch(endpoint, {
+                            method,
+                            headers: {
+                                'Content-Type': 'application/json',
+                                Authorization: `Bearer ${token}`,
+                            },
+                            body: JSON.stringify(editPayload),
+                        });
+
+                        const responseData = await response.json().catch(() => ({}));
+
+                        if (!response.ok) {
+                            throw new Error(responseData?.error?.message || responseData?.message || 'No fue posible actualizar el usuario');
+                        }
+
+                        return responseData;
+                    },
+                    onSuccess: (responseData, context: { previousUser: UserRecord }) => {
+                        if (responseData?.data?.id) {
+                            setUsers((previous) => previous.map((currentUser) => (
+                                currentUser.id === context.previousUser.id ? responseData.data : currentUser
+                            )));
+                        }
+
+                        loadUsers();
+                    },
+                    onError: (submitError, context: { previousUser: UserRecord }) => {
+                        setError(submitError instanceof Error ? submitError.message : 'No fue posible actualizar el usuario');
+                        openEditDialog(context.previousUser);
+                    },
+                });
+
+                if (!result.ok) {
+                    return;
+                }
+
+                setSuccess('Usuario actualizado exitosamente');
+            }
+
+            setTimeout(() => setSuccess(''), 4000);
+        } finally {
+            setSaving(false);
+        }
+    }, [closeDialog, editingUser, formData, loadUsers, openEditDialog, runOptimistic, validateField]);
+
+    const handleToggleUserStatus = useCallback(async (targetUser: UserRecord) => {
+        try {
+            setSaving(true);
+            setError('');
+
+            const token = localStorage.getItem('token');
+            const optimisticUser: UserRecord = {
+                ...targetUser,
+                isActive: !targetUser.isActive,
+            };
+
+            const result = await runOptimistic({
+                applyOptimistic: () => {
+                    setUsers((previous) => previous.map((currentUser) => (
+                        currentUser.id === targetUser.id ? optimisticUser : currentUser
+                    )));
+                    return { previousUser: targetUser };
+                },
+                rollback: (context: { previousUser: UserRecord }) => {
+                    setUsers((previous) => previous.map((currentUser) => (
+                        currentUser.id === context.previousUser.id ? context.previousUser : currentUser
+                    )));
+                },
+                mutation: async () => {
+                    const response = await fetch(`/api/users/${targetUser.id}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: `Bearer ${token}`,
+                        },
+                        body: JSON.stringify({ isActive: !targetUser.isActive }),
+                    });
+
+                    const responseData = await response.json().catch(() => ({}));
+
+                    if (!response.ok) {
+                        throw new Error(responseData?.error?.message || responseData?.message || 'No fue posible actualizar el acceso del usuario');
+                    }
+
+                    return responseData;
+                },
+                onSuccess: () => {
+                    loadUsers();
+                },
+                onError: (submitError) => {
+                    setError(submitError instanceof Error ? submitError.message : 'No fue posible actualizar el acceso del usuario');
+                },
+            });
+
+            if (!result.ok) return;
+
+            setSuccess(targetUser.isActive ? 'Usuario inhabilitado exitosamente' : 'Usuario reactivado exitosamente');
+            setTimeout(() => setSuccess(''), 4000);
+        } finally {
+            setSaving(false);
+        }
+    }, [loadUsers, runOptimistic]);
+
+    const handleOpenDeleteDialog = useCallback((targetUser: UserRecord) => {
+        setUserToDelete(targetUser);
+        setOpenDeleteDialog(true);
+    }, []);
+
+    const handleDelete = useCallback(async () => {
+        if (!userToDelete) return;
+
+        try {
+            setSaving(true);
+            setError('');
+
+            const token = localStorage.getItem('token');
+            const deletedUser = userToDelete;
+
+            setOpenDeleteDialog(false);
+
+            const result = await runOptimistic({
+                applyOptimistic: () => {
+                    setUsers((previous) => previous.filter((currentUser) => currentUser.id !== deletedUser.id));
+                    return { deletedUser };
+                },
+                rollback: (context: { deletedUser: UserRecord }) => {
+                    setUsers((previous) => [context.deletedUser, ...previous]);
+                },
+                mutation: async () => {
+                    const response = await fetch(`/api/users/${deletedUser.id}`, {
+                        method: 'DELETE',
+                        headers: {
+                            Authorization: `Bearer ${token}`,
+                        },
+                    });
+
+                    const responseData = await response.json().catch(() => ({}));
+
+                    if (!response.ok) {
+                        throw new Error(responseData?.error?.message || responseData?.message || 'No fue posible eliminar el usuario');
+                    }
+
+                    return responseData;
+                },
+                onError: (deleteError) => {
+                    setError(deleteError instanceof Error ? deleteError.message : 'No fue posible eliminar el usuario');
+                },
+            });
+
+            if (!result.ok) {
+                return;
+            }
+
+            setUserToDelete(null);
+            setSuccess('Usuario eliminado exitosamente');
+            setTimeout(() => setSuccess(''), 4000);
+        } finally {
+            setSaving(false);
+        }
+    }, [runOptimistic, userToDelete]);
+
+    const openView = useCallback((targetUser: UserRecord) => {
+        setSelectedUser(targetUser);
+        setOpenViewDialog(true);
+    }, []);
+
+    const emptyStateLabel = useMemo(() => {
+        if (activeTab === 'specialists') return 'No hay especialistas registrados con este criterio.';
+        if (activeTab === 'patients') return 'No hay pacientes registrados con este criterio.';
+        return 'No hay administradores registrados con este criterio.';
+    }, [activeTab]);
+
+    return (
+        <Box>
+            {error && (
+                <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
+                    {error}
+                </Alert>
+            )}
+
+            {success && (
+                <Alert severity="success" sx={{ mb: 3 }} onClose={() => setSuccess('')}>
+                    {success}
+                </Alert>
+            )}
+
+            <Stack
+                direction={{ xs: 'column', md: 'row' }}
+                justifyContent="space-between"
+                alignItems={{ xs: 'flex-start', md: 'center' }}
+                spacing={2}
+                mb={3}
+            >
+                <Box>
+                    <Typography variant="h4" fontWeight="bold" gutterBottom>
+                        Usuarios
+                    </Typography>
+                    <Typography variant="body1" color="text.secondary">
+                        Gestión administrativa de accesos. Los especialistas editan su propio perfil desde su cuenta.
+                    </Typography>
                 </Box>
-              </Grid>
+            </Stack>
+
+            <Grid container spacing={2} sx={{ mb: 3 }}>
+                {availableTabs.map((tab) => (
+                    <Grid item xs={12} md={4} key={tab.value}>
+                        <Card
+                            variant="outlined"
+                            sx={{
+                                borderColor: activeTab === tab.value ? 'primary.main' : 'divider',
+                                backgroundColor: activeTab === tab.value ? 'primary.50' : 'background.paper',
+                            }}
+                        >
+                            <CardContent>
+                                <Typography variant="overline" color="text.secondary">
+                                    Vista actual
+                                </Typography>
+                                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                                    <Typography variant="h6" fontWeight={700}>
+                                        {tab.label}
+                                    </Typography>
+                                    <Chip label={tab.count} color={activeTab === tab.value ? 'primary' : 'default'} size="small" />
+                                </Stack>
+                            </CardContent>
+                        </Card>
+                    </Grid>
+                ))}
             </Grid>
 
-            <Alert severity="info" sx={{ mt: 2 }}>
-              <Typography variant="body2">
-                El usuario recibirá sus credenciales y deberá completar su perfil
-                al iniciar sesión por primera vez.
-              </Typography>
-            </Alert>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog} disabled={saving}>Cancelar</Button>
-          <Button
-            variant="contained"
-            onClick={handleSubmit}
-            disabled={!formData.email || (!editingUser && !formData.tempPassword) || saving}
-          >
-            {saving ? 'Guardando...' : editingUser ? 'Actualizar' : 'Crear Usuario'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+            <Paper sx={{ mb: 3, overflow: 'hidden' }}>
+                <Tabs
+                    value={activeTab}
+                    onChange={(_, value: UserCategory) => setActiveTab(value)}
+                    variant="scrollable"
+                    scrollButtons="auto"
+                    sx={{ borderBottom: '1px solid', borderColor: 'divider' }}
+                >
+                    {availableTabs.map((tab) => (
+                        <Tab
+                            key={tab.value}
+                            value={tab.value}
+                            label={`${tab.label} (${tab.count})`}
+                            sx={{ textTransform: 'none', fontWeight: 600 }}
+                        />
+                    ))}
+                </Tabs>
 
-      {/* Diálogo de Confirmación de Eliminación */}
-      <Dialog
-        open={openDeleteDialog}
-        onClose={handleCloseDeleteDialog}
-        maxWidth="xs"
-        fullWidth
-      >
-        <DialogTitle sx={{ color: 'error.main' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <DeleteIcon />
-            Eliminar Usuario
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          <Alert severity="warning" sx={{ mb: 2 }}>
-            Esta acción no se puede deshacer
-          </Alert>
-          {userToDelete && (
-            <Box>
-              <Typography component="span">
-                ¿Estás seguro de que deseas eliminar al usuario{' '}
-                <strong>
-                  {userToDelete.suffix && `${userToDelete.suffix} `}
-                  {userToDelete.firstName} {userToDelete.lastName}
-                </strong>
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                ({userToDelete.email})
-              </Typography>
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDeleteDialog} disabled={deleting}>
-            Cancelar
-          </Button>
-          <Button
-            variant="contained"
-            color="error"
-            onClick={() => userToDelete && handleDelete(userToDelete.id)}
-            disabled={deleting}
-          >
-            {deleting ? 'Eliminando...' : 'Eliminar'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+                <Box sx={{ p: 3 }}>
+                    <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} justifyContent="space-between" alignItems={{ xs: 'stretch', md: 'center' }}>
+                        <TextField
+                            fullWidth
+                            placeholder="Buscar por nombre, email, teléfono, especialidad o cédula"
+                            value={searchTerm}
+                            onChange={(event) => setSearchTerm(event.target.value)}
+                            InputProps={{
+                                startAdornment: (
+                                    <InputAdornment position="start">
+                                        <SearchIcon />
+                                    </InputAdornment>
+                                ),
+                            }}
+                        />
 
-      {/* Backdrop para operaciones de guardado/eliminación */}
-      <Backdrop
-        sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.modal + 1 }}
-        open={saving || deleting}
-      >
-        <Box sx={{ textAlign: 'center' }}>
-          <CircularProgress color="inherit" />
-          <Typography sx={{ mt: 2 }}>
-            {saving ? 'Guardando usuario...' : 'Eliminando usuario...'}
-          </Typography>
+                        {canCreateInActiveTab && (
+                            <Button
+                                variant="outlined"
+                                startIcon={<PersonAddIcon />}
+                                onClick={() => openCreateDialog(getDefaultRoleByTab(activeTab))}
+                                sx={{ minWidth: { md: 220 } }}
+                            >
+                                {createButtonLabel}
+                            </Button>
+                        )}
+                    </Stack>
+                </Box>
+            </Paper>
+
+            <Grid container spacing={3}>
+                {loading &&
+                    Array.from({ length: 6 }).map((_, index) => (
+                        <Grid item xs={12} md={6} xl={4} key={`skeleton-${index}`}>
+                            <Card>
+                                <CardContent>
+                                    <Stack direction="row" spacing={2} mb={2}>
+                                        <Skeleton variant="circular" width={56} height={56} />
+                                        <Box sx={{ flex: 1 }}>
+                                            <Skeleton variant="text" width="60%" height={32} />
+                                            <Skeleton variant="text" width="80%" />
+                                        </Box>
+                                    </Stack>
+                                    <Skeleton variant="rounded" height={20} sx={{ mb: 1 }} />
+                                    <Skeleton variant="rounded" height={20} sx={{ mb: 1 }} />
+                                    <Skeleton variant="rounded" height={20} sx={{ mb: 1 }} />
+                                    <Skeleton variant="rounded" height={20} width="50%" />
+                                </CardContent>
+                            </Card>
+                        </Grid>
+                    ))}
+
+                {!loading && filteredUsers.length === 0 && (
+                    <Grid item xs={12}>
+                        <Paper sx={{ p: 4, textAlign: 'center' }}>
+                            <Typography variant="h6" gutterBottom>
+                                Sin resultados
+                            </Typography>
+                            <Typography color="text.secondary">{emptyStateLabel}</Typography>
+                        </Paper>
+                    </Grid>
+                )}
+
+                {!loading && filteredUsers.map((currentUser) => {
+                    const fullName = getUserFullName(currentUser);
+                    const canDelete = isSuperAdmin && user?.id !== currentUser.id;
+                    const canManageCurrentUser = canManageTargetUser(currentUser) && currentUser.role !== 'SUPERADMIN';
+
+                    return (
+                        <Grid item xs={12} md={6} xl={4} key={currentUser.id}>
+                            <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                                <CardContent sx={{ flexGrow: 1 }}>
+                                    <Stack direction="row" spacing={2} alignItems="flex-start" mb={2.5}>
+                                        <Avatar
+                                            src={currentUser.specialist?.photoUrl || undefined}
+                                            sx={{ width: 56, height: 56, bgcolor: 'primary.main', fontWeight: 700 }}
+                                        >
+                                            {fullName.charAt(0).toUpperCase()}
+                                        </Avatar>
+
+                                        <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                                            <Typography variant="h6" fontWeight={700} noWrap>
+                                                {fullName}
+                                            </Typography>
+                                            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
+                                                {renderEmailWithStyle(currentUser.email)}
+                                            </Typography>
+                                            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1.25 }}>
+                                                <Chip label={getRoleLabel(currentUser.role)} color={getRoleColor(currentUser.role)} size="small" />
+                                                <Chip
+                                                    label={currentUser.isActive ? 'Activo' : 'Inactivo'}
+                                                    color={currentUser.isActive ? 'success' : 'default'}
+                                                    size="small"
+                                                    variant="outlined"
+                                                />
+                                                {currentUser.isNew && (
+                                                    <Chip label="Perfil pendiente" color="warning" size="small" variant="outlined" />
+                                                )}
+                                                {currentUser.specialist && (
+                                                    <Chip
+                                                        label={currentUser.specialist.isAvailable ? 'Disponible' : 'No disponible'}
+                                                        color={currentUser.specialist.isAvailable ? 'success' : 'default'}
+                                                        size="small"
+                                                        variant="outlined"
+                                                    />
+                                                )}
+                                            </Stack>
+                                        </Box>
+                                    </Stack>
+
+                                    <Stack spacing={1.2}>
+                                        {activeTab === 'specialists' && currentUser.specialist && (
+                                            <>
+                                                <Typography variant="body2"><strong>Especialidad:</strong> {currentUser.specialist.specialty}</Typography>
+                                                <Typography variant="body2"><strong>Cédula:</strong> {currentUser.specialist.licenseNumber}</Typography>
+                                                <Typography variant="body2"><strong>Consultorio:</strong> {currentUser.specialist.assignedOffice || 'Por asignar'}</Typography>
+                                                <Typography variant="body2"><strong>Experiencia:</strong> {currentUser.specialist.yearsOfExperience ? `${currentUser.specialist.yearsOfExperience} años` : 'No registrada'}</Typography>
+                                                <Typography variant="body2"><strong>Consulta:</strong> {formatCurrency(currentUser.specialist.consultationFee)}</Typography>
+                                            </>
+                                        )}
+
+                                        {activeTab === 'patients' && (
+                                            <>
+                                                <Typography variant="body2"><strong>Teléfono:</strong> {currentUser.phone || 'No registrado'}</Typography>
+                                                <Typography variant="body2"><strong>Fecha de nacimiento:</strong> {formatDate(currentUser.dateOfBirth)}</Typography>
+                                                <Typography variant="body2"><strong>Registro:</strong> {formatDate(currentUser.createdAt)}</Typography>
+                                            </>
+                                        )}
+
+                                        {activeTab === 'admins' && (
+                                            <>
+                                                <Typography variant="body2"><strong>Teléfono:</strong> {currentUser.phone || 'No registrado'}</Typography>
+                                                <Typography variant="body2"><strong>Nivel:</strong> {currentUser.role === 'SUPERADMIN' ? 'Acceso total' : 'Administración operativa'}</Typography>
+                                                <Typography variant="body2">
+                                                    <strong>Permisos:</strong> {currentUser.role === 'SUPERADMIN'
+                                                        ? 'Todos los permisos del sistema'
+                                                        : Array.isArray(currentUser.adminPermissions) && currentUser.adminPermissions.length > 0
+                                                            ? `${currentUser.adminPermissions.length} permisos configurados`
+                                                            : 'Sin permisos específicos asignados'}
+                                                </Typography>
+                                                <Typography variant="body2"><strong>Alta:</strong> {formatDate(currentUser.createdAt)}</Typography>
+                                            </>
+                                        )}
+
+                                        {activeTab !== 'patients' && currentUser.phone && (
+                                            <Typography variant="body2"><strong>Teléfono:</strong> {currentUser.phone}</Typography>
+                                        )}
+                                    </Stack>
+
+                                    {activeTab === 'admins' && Array.isArray(currentUser.adminPermissions) && currentUser.adminPermissions.length > 0 && currentUser.role !== 'SUPERADMIN' && (
+                                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 2 }}>
+                                            {currentUser.adminPermissions.slice(0, 3).map((permission) => (
+                                                <Chip key={permission} label={permission} size="small" variant="outlined" />
+                                            ))}
+                                            {currentUser.adminPermissions.length > 3 && (
+                                                <Chip label={`+${currentUser.adminPermissions.length - 3}`} size="small" />
+                                            )}
+                                        </Stack>
+                                    )}
+                                </CardContent>
+
+                                <Divider />
+
+                                <CardActions sx={{ px: 2, py: 1.5, justifyContent: 'space-between' }}>
+                                    <Button size="small" startIcon={<VisibilityIcon />} onClick={() => openView(currentUser)}>
+                                        Ver detalle
+                                    </Button>
+
+                                    <Stack direction="row" spacing={0.5}>
+                                        {canManageCurrentUser && (
+                                            <Tooltip title={currentUser.role === 'ADMIN' ? 'Editar permisos' : 'Gestionar acceso'}>
+                                                <IconButton color="primary" onClick={() => openEditDialog(currentUser)}>
+                                                    <EditIcon />
+                                                </IconButton>
+                                            </Tooltip>
+                                        )}
+
+                                        {canManageCurrentUser && (
+                                            <Tooltip title={currentUser.isActive ? 'Inhabilitar usuario' : 'Reactivar usuario'}>
+                                                <IconButton
+                                                    color={currentUser.isActive ? 'warning' : 'success'}
+                                                    onClick={() => handleToggleUserStatus(currentUser)}
+                                                >
+                                                    {currentUser.isActive ? <LockPersonIcon /> : <CheckCircleOutlineIcon />}
+                                                </IconButton>
+                                            </Tooltip>
+                                        )}
+
+                                        {canDelete && (
+                                            <Tooltip title="Eliminar usuario">
+                                                <IconButton color="error" onClick={() => handleOpenDeleteDialog(currentUser)}>
+                                                    <DeleteIcon />
+                                                </IconButton>
+                                            </Tooltip>
+                                        )}
+                                    </Stack>
+                                </CardActions>
+                            </Card>
+                        </Grid>
+                    );
+                })}
+            </Grid>
+
+            <Dialog open={openDialog} onClose={closeDialog} maxWidth="sm" fullWidth>
+                <DialogTitle>{getEditDialogTitle(editingUser)}</DialogTitle>
+                <DialogContent>
+                    <Stack spacing={2} sx={{ mt: 1 }}>
+                        {!editingUser ? (
+                            <>
+                                <TextField
+                                    label="Email"
+                                    value={formData.email}
+                                    onChange={(event) => handleChange('email', event.target.value)}
+                                    onBlur={(event) => handleBlur('email', event.target.value)}
+                                    error={Boolean(fieldErrors.email)}
+                                    helperText={fieldErrors.email || 'Si no agregas dominio, se usará @maria-vita.mx'}
+                                    fullWidth
+                                />
+
+                                <TextField
+                                    select
+                                    label="Rol"
+                                    value={formData.role}
+                                    onChange={(event) => handleChange('role', event.target.value as FormState['role'])}
+                                    error={Boolean(fieldErrors.role)}
+                                    helperText={fieldErrors.role}
+                                    fullWidth
+                                >
+                                    {roles.map((roleOption) => (
+                                        <MenuItem key={roleOption.value} value={roleOption.value}>
+                                            {roleOption.label}
+                                        </MenuItem>
+                                    ))}
+                                </TextField>
+
+                                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                                    <TextField
+                                        select
+                                        label="Prefijo"
+                                        value={formData.suffix}
+                                        onChange={(event) => handleChange('suffix', event.target.value)}
+                                        fullWidth
+                                    >
+                                        <MenuItem value="">Sin prefijo</MenuItem>
+                                        {suffixes.map((suffix) => (
+                                            <MenuItem key={suffix} value={suffix}>
+                                                {suffix}
+                                            </MenuItem>
+                                        ))}
+                                    </TextField>
+
+                                    <TextField
+                                        label="Teléfono"
+                                        value={formData.phone}
+                                        onChange={(event) => handleChange('phone', event.target.value)}
+                                        onBlur={(event) => handleBlur('phone', event.target.value)}
+                                        error={Boolean(fieldErrors.phone)}
+                                        helperText={fieldErrors.phone}
+                                        fullWidth
+                                    />
+                                </Stack>
+
+                                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                                    <TextField
+                                        label="Nombre"
+                                        value={formData.firstName}
+                                        onChange={(event) => handleChange('firstName', event.target.value)}
+                                        onBlur={(event) => handleBlur('firstName', event.target.value)}
+                                        error={Boolean(fieldErrors.firstName)}
+                                        helperText={fieldErrors.firstName}
+                                        fullWidth
+                                    />
+
+                                    <TextField
+                                        label="Apellidos"
+                                        value={formData.lastName}
+                                        onChange={(event) => handleChange('lastName', event.target.value)}
+                                        onBlur={(event) => handleBlur('lastName', event.target.value)}
+                                        error={Boolean(fieldErrors.lastName)}
+                                        helperText={fieldErrors.lastName}
+                                        fullWidth
+                                    />
+                                </Stack>
+
+                                <TextField
+                                    label="Fecha de nacimiento"
+                                    type="date"
+                                    value={formData.dateOfBirth}
+                                    onChange={(event) => handleChange('dateOfBirth', event.target.value)}
+                                    InputLabelProps={{ shrink: true }}
+                                    fullWidth
+                                />
+
+                                <TextField
+                                    label="Contraseña temporal"
+                                    type="password"
+                                    value={formData.tempPassword}
+                                    onChange={(event) => handleChange('tempPassword', event.target.value)}
+                                    onBlur={(event) => handleBlur('tempPassword', event.target.value)}
+                                    error={Boolean(fieldErrors.tempPassword)}
+                                    helperText={fieldErrors.tempPassword}
+                                    fullWidth
+                                />
+                            </>
+                        ) : (
+                            <Alert severity="info">
+                                {editingUser.role === 'ADMIN'
+                                    ? 'Desde esta vista administrativa solo se gestionan permisos y estado de acceso del administrador.'
+                                    : 'El perfil profesional o personal se edita desde la cuenta del propio usuario. Aquí solo gestionas su acceso al sistema.'}
+                            </Alert>
+                        )}
+
+                        <FormControlLabel
+                            control={
+                                <Checkbox
+                                    checked={formData.isActive}
+                                    onChange={(event) => handleChange('isActive', event.target.checked)}
+                                />
+                            }
+                            label="Usuario activo"
+                        />
+
+                        {((!editingUser && formData.role === 'ADMIN') || editingUser?.role === 'ADMIN') && canManageAdmins && (
+                            <Box>
+                                <Typography variant="subtitle2" gutterBottom>
+                                    Permisos administrativos
+                                </Typography>
+
+                                <FormGroup>
+                                    {adminPermissionOptions.map((permission) => {
+                                        const isChecked = formData.adminPermissions.includes(permission.value);
+
+                                        return (
+                                            <FormControlLabel
+                                                key={permission.value}
+                                                control={
+                                                    <Checkbox
+                                                        checked={isChecked}
+                                                        onChange={(event) => {
+                                                            if (event.target.checked) {
+                                                                handleChange('adminPermissions', [...formData.adminPermissions, permission.value]);
+                                                                return;
+                                                            }
+
+                                                            handleChange(
+                                                                'adminPermissions',
+                                                                formData.adminPermissions.filter((item) => item !== permission.value)
+                                                            );
+                                                        }}
+                                                    />
+                                                }
+                                                label={permission.label}
+                                            />
+                                        );
+                                    })}
+                                </FormGroup>
+                            </Box>
+                        )}
+
+                        {!editingUser && formData.role === 'SPECIALIST' && (
+                            <Alert severity="info">
+                                Los datos clínicos del especialista se muestran desde la base actual y podrán ampliarse en el siguiente paso.
+                            </Alert>
+                        )}
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={closeDialog} disabled={saving}>Cancelar</Button>
+                    <Button variant="contained" onClick={handleSubmit} disabled={saving}>
+                        {saving ? 'Guardando...' : editingUser ? 'Guardar cambios' : 'Crear usuario'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            <Dialog open={openViewDialog} onClose={() => setOpenViewDialog(false)} maxWidth="sm" fullWidth>
+                <DialogTitle>Detalle del usuario</DialogTitle>
+                <DialogContent>
+                    {selectedUser && (
+                        <Stack spacing={2} sx={{ mt: 1 }}>
+                            <Stack direction="row" spacing={2} alignItems="center">
+                                <Avatar
+                                    src={selectedUser.specialist?.photoUrl || undefined}
+                                    sx={{ width: 64, height: 64, bgcolor: 'primary.main', fontSize: '1.5rem', fontWeight: 700 }}
+                                >
+                                    {getUserFullName(selectedUser).charAt(0).toUpperCase()}
+                                </Avatar>
+                                <Box>
+                                    <Typography variant="h6" fontWeight={700}>
+                                        {getUserFullName(selectedUser)}
+                                    </Typography>
+                                    <Typography color="text.secondary">{selectedUser.email}</Typography>
+                                </Box>
+                            </Stack>
+
+                            <Divider />
+
+                            <Typography variant="body2"><strong>Rol:</strong> {getRoleLabel(selectedUser.role)}</Typography>
+                            <Typography variant="body2"><strong>Estado:</strong> {selectedUser.isActive ? 'Activo' : 'Inactivo'}</Typography>
+                            <Typography variant="body2"><strong>Teléfono:</strong> {selectedUser.phone || 'No registrado'}</Typography>
+                            <Typography variant="body2"><strong>Fecha de nacimiento:</strong> {formatDate(selectedUser.dateOfBirth)}</Typography>
+                            <Typography variant="body2"><strong>Alta:</strong> {formatDate(selectedUser.createdAt)}</Typography>
+
+                            {selectedUser.specialist && (
+                                <>
+                                    <Divider />
+                                    <Typography variant="subtitle1" fontWeight={700}>Ficha del especialista</Typography>
+                                    <Typography variant="body2"><strong>Especialidad:</strong> {selectedUser.specialist.specialty}</Typography>
+                                    <Typography variant="body2"><strong>Cédula:</strong> {selectedUser.specialist.licenseNumber}</Typography>
+                                    <Typography variant="body2"><strong>Consultorio:</strong> {selectedUser.specialist.assignedOffice || 'Por asignar'}</Typography>
+                                    <Typography variant="body2"><strong>Experiencia:</strong> {selectedUser.specialist.yearsOfExperience ? `${selectedUser.specialist.yearsOfExperience} años` : 'No registrada'}</Typography>
+                                    <Typography variant="body2"><strong>Costo de consulta:</strong> {formatCurrency(selectedUser.specialist.consultationFee)}</Typography>
+                                    <Typography variant="body2"><strong>Biografía:</strong> {selectedUser.specialist.biography || 'Sin biografía registrada'}</Typography>
+                                </>
+                            )}
+
+                            {(selectedUser.role === 'ADMIN' || selectedUser.role === 'SUPERADMIN') && (
+                                <>
+                                    <Divider />
+                                    <Typography variant="subtitle1" fontWeight={700}>Permisos administrativos</Typography>
+                                    {selectedUser.role === 'SUPERADMIN' ? (
+                                        <Alert severity="warning">Cuenta con acceso total al sistema.</Alert>
+                                    ) : Array.isArray(selectedUser.adminPermissions) && selectedUser.adminPermissions.length > 0 ? (
+                                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                            {selectedUser.adminPermissions.map((permission) => (
+                                                <Chip key={permission} label={permission} size="small" variant="outlined" />
+                                            ))}
+                                        </Stack>
+                                    ) : (
+                                        <Typography variant="body2" color="text.secondary">
+                                            Sin permisos específicos configurados.
+                                        </Typography>
+                                    )}
+                                </>
+                            )}
+                        </Stack>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenViewDialog(false)}>Cerrar</Button>
+                </DialogActions>
+            </Dialog>
+
+            <Dialog open={openDeleteDialog} onClose={() => !saving && setOpenDeleteDialog(false)} maxWidth="xs" fullWidth>
+                <DialogTitle sx={{ color: 'error.main' }}>Eliminar usuario</DialogTitle>
+                <DialogContent>
+                    <Typography>
+                        {userToDelete
+                            ? `¿Seguro que deseas eliminar a ${getUserFullName(userToDelete)}? Esta acción también eliminará su perfil relacionado si aplica.`
+                            : '¿Seguro que deseas eliminar este usuario?'}
+                    </Typography>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenDeleteDialog(false)} disabled={saving}>Cancelar</Button>
+                    <Button color="error" variant="contained" onClick={handleDelete} disabled={saving}>
+                        {saving ? 'Eliminando...' : 'Eliminar'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            <Backdrop
+                sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }}
+                open={saving}
+            >
+                <CircularProgress color="inherit" />
+            </Backdrop>
         </Box>
-      </Backdrop>
-    </Box>
-  );
+    );
 }
-
-
