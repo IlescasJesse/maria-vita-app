@@ -7,6 +7,11 @@
 
 echo "🛑 Deteniendo servicios de Maria Vita..."
 
+if command -v pm2 >/dev/null 2>&1; then
+    pm2 delete maria-vita-backend 2>/dev/null && echo "✅ PM2 backend detenido" || true
+    pm2 delete maria-vita-frontend 2>/dev/null && echo "✅ PM2 frontend detenido" || true
+fi
+
 # Leer PIDs guardados
 if [ -f /var/run/mariavita-backend.pid ]; then
     BACKEND_PID=$(cat /var/run/mariavita-backend.pid)

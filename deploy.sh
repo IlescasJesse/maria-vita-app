@@ -11,6 +11,11 @@ PROJECT_DIR="/var/www/maria-vita-app"
 ENV_FILE=".env.production"
 BACKEND_PORT_DEFAULT=5000
 FRONTEND_PORT_DEFAULT=3000
+USE_PM2=false
+
+if command -v pm2 >/dev/null 2>&1; then
+    USE_PM2=true
+fi
 
 echo "🚀 Iniciando deployment de Maria Vita..."
 echo ""
@@ -56,6 +61,11 @@ npm run build || { echo "❌ Error construyendo la aplicación"; exit 1; }
 # 8. Detener procesos existentes
 echo "🛑 Deteniendo procesos existentes..."
 
+if [ "$USE_PM2" = true ]; then
+    pm2 delete maria-vita-backend 2>/dev/null || true
+    pm2 delete maria-vita-frontend 2>/dev/null || true
+fi
+
 # Detener por PID si existen archivos
 if [ -f /var/run/mariavita-backend.pid ]; then
     BACKEND_OLD_PID=$(cat /var/run/mariavita-backend.pid)
@@ -88,23 +98,31 @@ FRONTEND_PORT=${FRONTEND_PORT:-$FRONTEND_PORT_DEFAULT}
 echo "▶️  Iniciando servicios..."
 echo ""
 
-# Iniciar backend en background
-echo "   Iniciando backend..."
-nohup env NODE_ENV=production npm run backend:start > /var/log/mariavita-backend.log 2>&1 &
-BACKEND_PID=$!
-echo $BACKEND_PID > /var/run/mariavita-backend.pid
-echo "   ✅ Backend iniciado (PID: $BACKEND_PID)"
+if [ "$USE_PM2" = true ]; then
+    echo "   Iniciando backend + frontend con PM2..."
+    PORT=$FRONTEND_PORT pm2 start ecosystem.config.cjs --env production
+    pm2 save
+    BACKEND_PID=$(pm2 pid maria-vita-backend)
+    FRONTEND_PID=$(pm2 pid maria-vita-frontend)
+else
+    # Iniciar backend en background
+    echo "   Iniciando backend..."
+    nohup env NODE_ENV=production npm run backend:start > /var/log/mariavita-backend.log 2>&1 &
+    BACKEND_PID=$!
+    echo $BACKEND_PID > /var/run/mariavita-backend.pid
+    echo "   ✅ Backend iniciado (PID: $BACKEND_PID)"
 
-# Esperar a que el backend esté listo
-echo "   ⏳ Esperando a que el backend inicie..."
-sleep 5
+    # Esperar a que el backend esté listo
+    echo "   ⏳ Esperando a que el backend inicie..."
+    sleep 5
 
-# Iniciar frontend en background
-echo "   Iniciando frontend..."
-nohup env NODE_ENV=production PORT=$FRONTEND_PORT npm start > /var/log/mariavita-frontend.log 2>&1 &
-FRONTEND_PID=$!
-echo $FRONTEND_PID > /var/run/mariavita-frontend.pid
-echo "   ✅ Frontend iniciado (PID: $FRONTEND_PID)"
+    # Iniciar frontend en background
+    echo "   Iniciando frontend..."
+    nohup env NODE_ENV=production PORT=$FRONTEND_PORT npm start > /var/log/mariavita-frontend.log 2>&1 &
+    FRONTEND_PID=$!
+    echo $FRONTEND_PID > /var/run/mariavita-frontend.pid
+    echo "   ✅ Frontend iniciado (PID: $FRONTEND_PID)"
+fi
 
 # Esperar a que el frontend compile
 echo "   ⏳ Esperando a que el frontend compile..."
@@ -113,13 +131,17 @@ sleep 5
 # 10. Verificar que los servicios están corriendo
 echo ""
 echo "🔍 Verificando servicios..."
-if ps -p $BACKEND_PID > /dev/null 2>&1; then
+if [ "$USE_PM2" = true ] && [ -n "$BACKEND_PID" ] && [ "$BACKEND_PID" != "0" ]; then
+    echo "   ✅ Backend corriendo correctamente (PM2 PID: $BACKEND_PID)"
+elif ps -p $BACKEND_PID > /dev/null 2>&1; then
     echo "   ✅ Backend corriendo correctamente"
 else
     echo "   ⚠️  Advertencia: Backend podría no estar corriendo. Revisa los logs."
 fi
 
-if ps -p $FRONTEND_PID > /dev/null 2>&1; then
+if [ "$USE_PM2" = true ] && [ -n "$FRONTEND_PID" ] && [ "$FRONTEND_PID" != "0" ]; then
+    echo "   ✅ Frontend corriendo correctamente (PM2 PID: $FRONTEND_PID)"
+elif ps -p $FRONTEND_PID > /dev/null 2>&1; then
     echo "   ✅ Frontend corriendo correctamente"
 else
     echo "   ⚠️  Advertencia: Frontend podría no estar corriendo. Revisa los logs."
