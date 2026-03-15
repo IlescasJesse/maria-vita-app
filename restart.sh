@@ -29,7 +29,7 @@ BACKEND_PORT=${BACKEND_PORT:-$BACKEND_PORT_DEFAULT}
 FRONTEND_PORT=${FRONTEND_PORT:-$FRONTEND_PORT_DEFAULT}
 
 # Detener servicios
-./stop.sh
+bash ./stop.sh
 
 echo ""
 echo "⏳ Esperando 2 segundos..."
