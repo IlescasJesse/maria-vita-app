@@ -8,6 +8,7 @@ import { Router } from 'express';
 import { body } from 'express-validator';
 import { validate } from '../middlewares/validator';
 import { authenticate } from '../middlewares/auth';
+import { isValidAvatarPhotoValue } from '../../lib/avatarPhoto';
 import {
   register,
   login,
@@ -240,6 +241,14 @@ const completeProfileValidation = [
   body('phone')
     .optional({ checkFalsy: true })
     .isNumeric().withMessage('El teléfono debe ser numérico'),
+  body('photoUrl')
+    .optional({ checkFalsy: true })
+    .custom((value) => {
+      if (!isValidAvatarPhotoValue(value)) {
+        throw new Error('URL de foto inválida');
+      }
+      return true;
+    }),
   validate
 ];
 
@@ -283,7 +292,12 @@ const completeAdminProfileValidation = [
     .matches(/^\d{10}$/).withMessage('Teléfono debe tener exactamente 10 dígitos'),
   body('photoUrl')
     .optional({ checkFalsy: true })
-    .isURL().withMessage('URL de foto inválida'),
+    .custom((value) => {
+      if (!isValidAvatarPhotoValue(value)) {
+        throw new Error('URL de foto inválida');
+      }
+      return true;
+    }),
   body('newPassword')
     .notEmpty().withMessage('La contraseña es requerida')
     .isLength({ min: 8 }).withMessage('La contraseña debe tener al menos 8 caracteres')

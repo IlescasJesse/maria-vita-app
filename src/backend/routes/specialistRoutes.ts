@@ -8,6 +8,7 @@ import { Router } from 'express';
 import { body, param } from 'express-validator';
 import { validate } from '../middlewares/validator';
 import { authenticate, authorize } from '../middlewares/auth';
+import { isValidAvatarPhotoValue } from '../../lib/avatarPhoto';
 import {
   getSpecialists,
   getSpecialistById,
@@ -53,7 +54,12 @@ const createSpecialistValidation = [
     .isInt({ min: 0, max: 70 }).withMessage('Los años de experiencia deben ser entre 0 y 70'),
   body('photoUrl')
     .optional()
-    .isURL().withMessage('La URL de la foto debe ser válida'),
+    .custom((value) => {
+      if (!isValidAvatarPhotoValue(value)) {
+        throw new Error('La URL de la foto debe ser válida');
+      }
+      return true;
+    }),
   body('consultationFee')
     .optional()
     .isFloat({ min: 0 }).withMessage('El precio de consulta debe ser mayor o igual a 0'),
@@ -93,7 +99,12 @@ const updateSpecialistValidation = [
     .isInt({ min: 0, max: 70 }).withMessage('Los años de experiencia deben ser entre 0 y 70'),
   body('photoUrl')
     .optional()
-    .isURL().withMessage('La URL de la foto debe ser válida'),
+    .custom((value) => {
+      if (!isValidAvatarPhotoValue(value)) {
+        throw new Error('La URL de la foto debe ser válida');
+      }
+      return true;
+    }),
   body('consultationFee')
     .optional()
     .isFloat({ min: 0 }).withMessage('El precio de consulta debe ser mayor o igual a 0'),

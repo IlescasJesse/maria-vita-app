@@ -31,6 +31,8 @@ import {
   Lock as LockIconComponent,
 } from '@mui/icons-material';
 import ClinicAvatar from '@/components/ClinicAvatar';
+import { optimizeAvatarFile } from '@/lib/avatarImage';
+import { AVATAR_UPLOAD_ACCEPT } from '@/lib/avatarPhoto';
 import { completeAdminProfileSchema } from '@/lib/validations';
 
 interface AdminProfileFormData {
@@ -126,32 +128,38 @@ export default function CompleteAdminProfilePage() {
     setActiveStep(prev => prev - 1);
   };
 
-  const handlePhotoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      setError('Selecciona una imagen valida');
-      return;
-    }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      setUploadedPhotoBase64(result);
+    try {
+      const optimizedAvatar = await optimizeAvatarFile(file);
+      setUploadedPhotoBase64(optimizedAvatar.dataUrl);
       setFormData(prev => ({
         ...prev,
-        photoUrl: result,
+        photoUrl: optimizedAvatar.dataUrl,
       }));
-      setSuccess('Foto cargada correctamente');
+      setSuccess('Foto preparada correctamente. Ahora puedes guardarla.');
       setError('');
-    };
-    reader.readAsDataURL(file);
+
+      setFieldErrors(prev => {
+        const copy = { ...prev };
+        delete copy.photoUrl;
+        return copy;
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No fue posible procesar la imagen seleccionada');
+    } finally {
+      e.target.value = '';
+    }
   };
 
-  const enhancePhotoWithAI = async () => {
-    if (!uploadedPhotoBase64) {
+  const persistUploadedPhoto = async () => {
+    const pendingPhoto = uploadedPhotoBase64 || (formData.photoUrl?.startsWith('data:image/') ? formData.photoUrl : '');
+
+    if (!pendingPhoto) {
       setError('Primero sube una foto');
-      return;
+      return formData.photoUrl || '';
     }
 
     setPhotoLoading(true);
@@ -159,16 +167,14 @@ export default function CompleteAdminProfilePage() {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/upload/enhance-profile-photo', {
+      const response = await fetch('/api/upload/profile-photo', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          photoBase64: uploadedPhotoBase64,
-          firstName: formData.firstName,
-          lastName: formData.lastName,
+          photoBase64: pendingPhoto,
         }),
       });
 
@@ -178,12 +184,16 @@ export default function CompleteAdminProfilePage() {
           ...prev,
           photoUrl: result.data.photoUrl,
         }));
-        setSuccess('✓ Foto guardada correctamente');
+        setUploadedPhotoBase64('');
+        setSuccess('✓ Foto optimizada y guardada correctamente');
+        return result.data.photoUrl as string;
       } else {
         throw new Error(result.error?.message || 'Error guardando foto');
       }
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Error guardando foto';
+      setError(message);
+      throw err;
     } finally {
       setPhotoLoading(false);
     }
@@ -195,8 +205,18 @@ export default function CompleteAdminProfilePage() {
     setFieldErrors({});
 
     try {
+      let preparedFormData = { ...formData };
+
+      if (preparedFormData.photoUrl?.startsWith('data:image/')) {
+        const persistedPhotoUrl = await persistUploadedPhoto();
+        preparedFormData = {
+          ...preparedFormData,
+          photoUrl: persistedPhotoUrl,
+        };
+      }
+
       // Validar con Zod
-      const result = completeAdminProfileSchema.safeParse(formData);
+      const result = completeAdminProfileSchema.safeParse(preparedFormData);
 
       if (!result.success) {
         // Procesar errores de Zod
@@ -261,6 +281,7 @@ export default function CompleteAdminProfilePage() {
           email: respData.data.email,
           firstName: respData.data.firstName,
           lastName: respData.data.lastName,
+          photoUrl: respData.data.photoUrl,
           role: respData.data.role,
           phone: respData.data.phone,
           isActive: true,
@@ -453,7 +474,7 @@ export default function CompleteAdminProfilePage() {
                     Subir foto
                     <input
                       hidden
-                      accept="image/*"
+                      accept={AVATAR_UPLOAD_ACCEPT}
                       type="file"
                       onChange={handlePhotoFileChange}
                     />
@@ -461,13 +482,13 @@ export default function CompleteAdminProfilePage() {
                   <Button
                     fullWidth
                     variant="contained"
-                    onClick={enhancePhotoWithAI}
+                    onClick={persistUploadedPhoto}
                     disabled={!uploadedPhotoBase64 || photoLoading}
                   >
                     {photoLoading ? 'Guardando...' : 'Guardar foto'}
                   </Button>
                   <Typography variant="body2" color="text.secondary" textAlign="center">
-                    Acepta JPG, PNG y webp. Máximo 5MB
+                    Acepta JPG, PNG, WEBP, AVIF, GIF, BMP y SVG. Se optimiza automáticamente para avatar.
                   </Typography>
                 </Box>
               </Grid>

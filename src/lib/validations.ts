@@ -5,6 +5,7 @@
  */
 
 import { z } from 'zod';
+import { isValidAvatarPhotoValue } from './avatarPhoto';
 import { VALIDATION_PATTERNS } from '../types/enums';
 
 // ============================================
@@ -19,6 +20,13 @@ const strongPasswordSchema = z
   .regex(/[a-z]/, 'Debe contener al menos una minúscula (a-z)')
   .regex(/\d/, 'Debe contener al menos un número (0-9)')
   .regex(/[!@#$%^&*]/, 'Debe contener al menos un carácter especial (!@#$%^&*)');
+
+const avatarPhotoSchema = z
+  .string()
+  .refine(
+    (value) => isValidAvatarPhotoValue(value),
+    'La foto debe ser una URL válida, una ruta local o una imagen compatible'
+  );
 
 // ============================================
 // VALIDACIONES DE AUTENTICACIÓN
@@ -138,9 +146,7 @@ export const completeSpecialistProfileSchema = z.object({
     .max(99999, 'Tarifa muy alta')
     .optional()
     .or(z.nan()),
-  photoUrl: z
-    .string()
-    .url('URL de foto inválida')
+  photoUrl: avatarPhotoSchema
     .optional()
     .or(z.literal('')),
   courses: z
@@ -209,9 +215,7 @@ export const completeAdminProfileSchema = z.object({
   confirmPassword: z
     .string({ required_error: 'Confirmar contraseña es requerida' })
     .min(1, 'Debe confirmar la contraseña'),
-  photoUrl: z
-    .string()
-    .url('URL de foto inválida')
+  photoUrl: avatarPhotoSchema
     .optional()
     .or(z.literal(''))
 }).refine(
@@ -287,10 +291,7 @@ export const createSpecialistSchema = z.object({
     .min(0, 'Años de experiencia no puede ser negativo')
     .max(60, 'Años de experiencia muy alto')
     .optional(),
-  photoUrl: z
-    .string()
-    .url('URL de foto inválida')
-    .max(500, 'URL muy larga')
+  photoUrl: avatarPhotoSchema
     .optional(),
   consultationFee: z
     .number()

@@ -28,6 +28,8 @@ import {
   Favorite as FavoriteIcon,
   Lock as LockIcon,
 } from '@mui/icons-material';
+import { optimizeAvatarFile } from '@/lib/avatarImage';
+import { AVATAR_UPLOAD_ACCEPT } from '@/lib/avatarPhoto';
 import { completeAdminProfileSchema, completeSpecialistProfileSchema } from '@/lib/validations';
 import ClinicAvatar from '@/components/ClinicAvatar';
 
@@ -395,12 +397,7 @@ export default function CompletarPerfilPage() {
     try {
       setLoading(true);
 
-      const photoBase64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result || ''));
-        reader.onerror = () => reject(new Error('No se pudo leer la imagen seleccionada'));
-        reader.readAsDataURL(file);
-      });
+      const optimizedAvatar = await optimizeAvatarFile(file);
 
       const response = await fetch('/api/upload/profile-photo', {
         method: 'POST',
@@ -408,18 +405,19 @@ export default function CompletarPerfilPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${localStorage.getItem('token')}`,
         },
-        body: JSON.stringify({ photoBase64 }),
+        body: JSON.stringify({ photoBase64: optimizedAvatar.dataUrl }),
       });
 
       if (!response.ok) throw new Error('Error al subir foto');
 
       const data = await response.json();
       handleChange('photoUrl', data?.data?.photoUrl || data?.photoUrl || '');
-      setSuccess('Foto subida correctamente');
-    } catch {
-      setError('Error al subir la foto');
+      setSuccess('Foto optimizada y subida correctamente');
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : 'Error al subir la foto');
     } finally {
       setLoading(false);
+      event.target.value = '';
     }
   };
 
@@ -1058,7 +1056,7 @@ export default function CompletarPerfilPage() {
                   <input
                     type="file"
                     hidden
-                    accept="image/*"
+                    accept={AVATAR_UPLOAD_ACCEPT}
                     onChange={handlePhotoUpload}
                   />
                 </Button>
@@ -1078,8 +1076,7 @@ export default function CompletarPerfilPage() {
 
             <Alert severity="info" sx={{ mt: 3 }}>
               <Typography variant="body2">
-                <strong>Próximamente:</strong> Genera una foto profesional con IA usando tu foto casual.
-                La IA te colocará con bata blanca y fondo en colores María Vita.
+                Las imágenes compatibles se convierten y optimizan automáticamente para reducir espacio sin perder calidad visual como avatar.
               </Typography>
             </Alert>
           </Box>

@@ -3,7 +3,16 @@
  * Usa Hugging Face o API de generación de imágenes
  */
 
+import fs from 'fs/promises';
+import path from 'path';
 import { Request, Response, NextFunction } from 'express';
+import {
+  MAX_STORED_AVATAR_BYTES,
+  estimateDataUrlBytes,
+  extractMimeTypeFromDataUrl,
+  getAvatarFileExtension,
+  isSupportedAvatarOutputMimeType,
+} from '../../lib/avatarPhoto';
 
 /**
  * Genera una foto de perfil usando IA basada en descripción
@@ -152,6 +161,35 @@ function generateAvatarWithInitials(firstName: string, lastName: string): string
   return `data:image/svg+xml;base64,${base64Svg}`;
 }
 
+async function persistAvatarFromDataUrl(photoBase64: string, userId: string) {
+  const mimeType = extractMimeTypeFromDataUrl(photoBase64);
+  const estimatedBytes = estimateDataUrlBytes(photoBase64);
+
+  if (!mimeType || !isSupportedAvatarOutputMimeType(mimeType)) {
+    throw new Error('Formato no compatible. Usa JPG, PNG, WEBP o SVG.');
+  }
+
+  if (estimatedBytes > MAX_STORED_AVATAR_BYTES) {
+    throw new Error('La imagen optimizada sigue siendo demasiado pesada para usarla como avatar');
+  }
+
+  const [, base64Payload = ''] = String(photoBase64).split(',', 2);
+  const buffer = Buffer.from(base64Payload, 'base64');
+  const projectRoot = path.resolve(__dirname, '../../../');
+  const uploadDirectory = path.join(projectRoot, 'public', 'uploads', 'avatars');
+  const fileExtension = getAvatarFileExtension(mimeType);
+  const fileName = `avatar-${userId}-${Date.now()}.${fileExtension}`;
+
+  await fs.mkdir(uploadDirectory, { recursive: true });
+  await fs.writeFile(path.join(uploadDirectory, fileName), buffer);
+
+  return {
+    photoUrl: `/uploads/avatars/${fileName}`,
+    mimeType,
+    sizeBytes: buffer.byteLength,
+  };
+}
+
 /**
  * Sube una foto de perfil (enviada por el usuario)
  */
@@ -172,9 +210,6 @@ export const uploadProfilePhoto = async (
       return;
     }
 
-    // TODO: Implementar subida de archivo real al servidor o S3
-    // Por ahora, se espera que el frontend envíe la foto en base64
-
     const { photoBase64 } = req.body;
 
     if (!photoBase64) {
@@ -188,7 +223,6 @@ export const uploadProfilePhoto = async (
       return;
     }
 
-    // Validar que sea una imagen válida
     if (!photoBase64.startsWith('data:image/')) {
       res.status(400).json({
         success: false,
@@ -196,15 +230,30 @@ export const uploadProfilePhoto = async (
           code: 'INVALID_FORMAT',
           message: 'Formato de imagen inválido'
         }
-      }); 22
+      });
+      return;
+    }
+
+    let avatar;
+
+    try {
+      avatar = await persistAvatarFromDataUrl(photoBase64, req.user.id);
+    } catch (persistError) {
+      res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_IMAGE',
+          message: persistError instanceof Error ? persistError.message : 'No fue posible guardar la imagen'
+        }
+      });
       return;
     }
 
     res.json({
       success: true,
       data: {
-        photoUrl: photoBase64,
-        message: 'La foto será guardada cuando completes tu perfil'
+        ...avatar,
+        message: 'La foto fue optimizada y guardada correctamente'
       }
     });
   } catch (error) {
@@ -256,17 +305,26 @@ export const enhanceProfilePhoto = async (
       return;
     }
 
-    // TODO: AI processing disponible después
-    // Por ahora, simplemente guardar la foto original
-    // const replicateToken = process.env.REPLICATE_API_TOKEN;
-    // const useControlNet = process.env.USE_CONTROLNET === 'true';
+    let avatar;
 
-    // Guardar foto original por el momento
+    try {
+      avatar = await persistAvatarFromDataUrl(photoBase64, req.user.id);
+    } catch (persistError) {
+      res.status(400).json({
+        success: false,
+        error: {
+          code: 'INVALID_IMAGE',
+          message: persistError instanceof Error ? persistError.message : 'No fue posible guardar la imagen'
+        }
+      });
+      return;
+    }
+
     res.json({
       success: true,
       data: {
-        photoUrl: photoBase64,
-        usage: 'Foto de perfil guardada (IA pendiente de activar)',
+        ...avatar,
+        usage: 'Foto de perfil optimizada y guardada',
         isOriginal: true
       }
     });
