@@ -92,6 +92,19 @@ export const errorHandler = (
       });
       return;
     }
+
+    // Error por columna faltante en la base de datos (schema desactualizado)
+    if (err.code === 'P2022') {
+      res.status(503).json({
+        success: false,
+        error: {
+          code: 'DATABASE_SCHEMA_OUTDATED',
+          message: 'La base de datos no está actualizada. Ejecuta migraciones de Prisma en producción.',
+          details: process.env.NODE_ENV === 'development' ? err.meta : undefined
+        }
+      });
+      return;
+    }
   }
 
   // Error de validación de Prisma (campos requeridos, tipos, etc)

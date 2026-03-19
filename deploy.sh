@@ -52,6 +52,11 @@ if [ ! -f "$ENV_FILE" ]; then
     exit 1
 fi
 
+echo "🔐 Cargando variables de entorno desde $ENV_FILE..."
+set -a
+. "$ENV_FILE"
+set +a
+
 # 2. Pull de los últimos cambios
 echo "⬇️  Descargando últimos cambios de GitHub..."
 git pull origin main
