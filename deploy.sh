@@ -57,6 +57,15 @@ set -a
 . "$ENV_FILE"
 set +a
 
+DATABASE_URL_FROM_ENV_FILE=$(grep -E '^DATABASE_URL=' "$ENV_FILE" | tail -n 1 | cut -d '=' -f2- | sed 's/^"//;s/"$//' | sed "s/^'//;s/'$//" | tr -d '\r' | xargs)
+
+if [ -z "$DATABASE_URL_FROM_ENV_FILE" ]; then
+    echo "❌ DATABASE_URL no está definida en $ENV_FILE"
+    exit 1
+fi
+
+echo "✅ DATABASE_URL detectada desde $ENV_FILE"
+
 # 2. Pull de los últimos cambios
 echo "⬇️  Descargando últimos cambios de GitHub..."
 git pull origin main
@@ -67,18 +76,18 @@ npm ci --include=dev || { echo "❌ Error instalando dependencias"; exit 1; }
 
 # 4. Regenerar cliente de Prisma
 echo "🔧 Regenerando cliente de Prisma..."
-npx prisma generate || { echo "❌ Error generando cliente de Prisma"; exit 1; }
+DATABASE_URL="$DATABASE_URL_FROM_ENV_FILE" npx prisma generate || { echo "❌ Error generando cliente de Prisma"; exit 1; }
 
 # 5. Ejecutar migraciones de base de datos
 echo "🗄️  Aplicando migraciones de base de datos..."
-if ! npx prisma migrate deploy; then
+if ! DATABASE_URL="$DATABASE_URL_FROM_ENV_FILE" npx prisma migrate deploy; then
     echo "⚠️  Falló prisma migrate deploy. Intentando recuperación automática..."
 
     # Caso común: la columna photo_url ya existe manualmente y la migración no está marcada como aplicada.
-    if npx prisma migrate resolve --applied 20260315120000_add_user_photo_url >/dev/null 2>&1; then
+    if DATABASE_URL="$DATABASE_URL_FROM_ENV_FILE" npx prisma migrate resolve --applied 20260315120000_add_user_photo_url >/dev/null 2>&1; then
         echo "   ✅ Migración 20260315120000_add_user_photo_url marcada como aplicada"
         echo "   🔁 Reintentando prisma migrate deploy..."
-        npx prisma migrate deploy || { echo "❌ Error aplicando migraciones después de recuperación automática"; exit 1; }
+        DATABASE_URL="$DATABASE_URL_FROM_ENV_FILE" npx prisma migrate deploy || { echo "❌ Error aplicando migraciones después de recuperación automática"; exit 1; }
     else
         echo "❌ Error aplicando migraciones"
         echo "   Ejecuta: npx prisma migrate status"
