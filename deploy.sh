@@ -63,7 +63,7 @@ git pull origin main
 
 # 3. Instalar/actualizar dependencias
 echo "📦 Instalando dependencias..."
-npm ci || { echo "❌ Error instalando dependencias"; exit 1; }
+npm ci --include=dev || { echo "❌ Error instalando dependencias"; exit 1; }
 
 # 4. Regenerar cliente de Prisma
 echo "🔧 Regenerando cliente de Prisma..."
