@@ -122,6 +122,35 @@ tail -f /var/log/mariavita-*.log
 
 ## 🐛 Troubleshooting
 
+### "Error interno del servidor" (HTTP 500)
+
+En el VPS ejecuta este diagnóstico rápido:
+
+```bash
+cd /var/www/maria-vita-app
+./status.sh
+curl -i http://127.0.0.1:5000/health
+curl -i http://127.0.0.1:3000
+```
+
+Si alguno falla, revisa logs inmediatamente:
+
+```bash
+# Con PM2
+pm2 status
+pm2 logs maria-vita-backend --lines 80 --nostream
+pm2 logs maria-vita-frontend --lines 80 --nostream
+
+# Sin PM2
+tail -n 80 /var/log/mariavita-backend.log
+tail -n 80 /var/log/mariavita-frontend.log
+```
+
+Errores más comunes:
+- `.env.production` faltante o con valores inválidos.
+- `DATABASE_URL` / `MONGODB_URI` incorrectos.
+- Backend no inicia y el frontend devuelve 500 al hacer proxy de `/api`.
+
 ### "ssh: command not found"
 - **Windows**: Instala OpenSSH o usa WSL2
 - **Mac/Linux**: Generalmente ya incluido

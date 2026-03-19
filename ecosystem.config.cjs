@@ -3,6 +3,7 @@ module.exports = {
         {
             name: 'maria-vita-backend',
             cwd: '/var/www/maria-vita-app',
+            env_file: '/var/www/maria-vita-app/.env.production',
             script: 'npm',
             args: 'run backend:start',
             env_production: {
@@ -21,6 +22,7 @@ module.exports = {
         {
             name: 'maria-vita-frontend',
             cwd: '/var/www/maria-vita-app',
+            env_file: '/var/www/maria-vita-app/.env.production',
             script: 'npm',
             args: 'start',
             env_production: {

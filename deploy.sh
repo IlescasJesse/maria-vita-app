@@ -17,6 +17,28 @@ if command -v pm2 >/dev/null 2>&1; then
     USE_PM2=true
 fi
 
+wait_for_http() {
+    local url="$1"
+    local name="$2"
+    local max_attempts="${3:-20}"
+    local sleep_seconds="${4:-2}"
+
+    local attempt=1
+    while [ "$attempt" -le "$max_attempts" ]; do
+        if curl -fsS "$url" >/dev/null 2>&1; then
+            echo "   ✅ $name respondió correctamente ($url)"
+            return 0
+        fi
+
+        echo "   ⏳ Esperando $name... intento $attempt/$max_attempts"
+        sleep "$sleep_seconds"
+        attempt=$((attempt + 1))
+    done
+
+    echo "   ❌ $name no respondió después de $max_attempts intentos ($url)"
+    return 1
+}
+
 echo "🚀 Iniciando deployment de Maria Vita..."
 echo ""
 
@@ -133,12 +155,15 @@ sleep 5
 # 10. Verificar que los servicios están corriendo
 echo ""
 echo "🔍 Verificando servicios..."
+FAILED_CHECKS=0
+
 if [ "$USE_PM2" = true ] && [ -n "$BACKEND_PID" ] && [ "$BACKEND_PID" != "0" ]; then
     echo "   ✅ Backend corriendo correctamente (PM2 PID: $BACKEND_PID)"
 elif ps -p $BACKEND_PID > /dev/null 2>&1; then
     echo "   ✅ Backend corriendo correctamente"
 else
     echo "   ⚠️  Advertencia: Backend podría no estar corriendo. Revisa los logs."
+    FAILED_CHECKS=1
 fi
 
 if [ "$USE_PM2" = true ] && [ -n "$FRONTEND_PID" ] && [ "$FRONTEND_PID" != "0" ]; then
@@ -147,6 +172,48 @@ elif ps -p $FRONTEND_PID > /dev/null 2>&1; then
     echo "   ✅ Frontend corriendo correctamente"
 else
     echo "   ⚠️  Advertencia: Frontend podría no estar corriendo. Revisa los logs."
+    FAILED_CHECKS=1
+fi
+
+echo ""
+echo "🩺 Ejecutando health checks HTTP..."
+if ! wait_for_http "http://127.0.0.1:${BACKEND_PORT}/health" "Backend" 25 2; then
+    FAILED_CHECKS=1
+fi
+
+if ! wait_for_http "http://127.0.0.1:${FRONTEND_PORT}" "Frontend" 25 2; then
+    FAILED_CHECKS=1
+fi
+
+if [ "$FAILED_CHECKS" -ne 0 ]; then
+    echo ""
+    echo "❌ Deployment incompleto: uno o más servicios no quedaron sanos"
+    echo ""
+    echo "📝 Últimas líneas de logs para diagnóstico rápido:"
+
+    if [ "$USE_PM2" = true ]; then
+        echo ""
+        echo "PM2 status:"
+        pm2 status | head -20 || true
+
+        echo ""
+        echo "Backend (PM2, últimas 40 líneas):"
+        pm2 logs maria-vita-backend --lines 40 --nostream 2>/dev/null || true
+
+        echo ""
+        echo "Frontend (PM2, últimas 40 líneas):"
+        pm2 logs maria-vita-frontend --lines 40 --nostream 2>/dev/null || true
+    else
+        echo ""
+        echo "Backend (/var/log/mariavita-backend.log, últimas 40 líneas):"
+        tail -n 40 /var/log/mariavita-backend.log 2>/dev/null || true
+
+        echo ""
+        echo "Frontend (/var/log/mariavita-frontend.log, últimas 40 líneas):"
+        tail -n 40 /var/log/mariavita-frontend.log 2>/dev/null || true
+    fi
+
+    exit 1
 fi
 
 echo ""
