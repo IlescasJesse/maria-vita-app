@@ -71,7 +71,21 @@ npx prisma generate || { echo "❌ Error generando cliente de Prisma"; exit 1; }
 
 # 5. Ejecutar migraciones de base de datos
 echo "🗄️  Aplicando migraciones de base de datos..."
-npx prisma migrate deploy || { echo "❌ Error aplicando migraciones"; exit 1; }
+if ! npx prisma migrate deploy; then
+    echo "⚠️  Falló prisma migrate deploy. Intentando recuperación automática..."
+
+    # Caso común: la columna photo_url ya existe manualmente y la migración no está marcada como aplicada.
+    if npx prisma migrate resolve --applied 20260315120000_add_user_photo_url >/dev/null 2>&1; then
+        echo "   ✅ Migración 20260315120000_add_user_photo_url marcada como aplicada"
+        echo "   🔁 Reintentando prisma migrate deploy..."
+        npx prisma migrate deploy || { echo "❌ Error aplicando migraciones después de recuperación automática"; exit 1; }
+    else
+        echo "❌ Error aplicando migraciones"
+        echo "   Ejecuta: npx prisma migrate status"
+        echo "   y revisa tabla _prisma_migrations para migraciones en estado fallido."
+        exit 1
+    fi
+fi
 
 # 6. Poblar base de datos solo si se solicita explícitamente
 if [ "${RUN_SEEDER:-false}" = "true" ]; then
