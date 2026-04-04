@@ -55,7 +55,8 @@ export const errorHandler = (
 
     // Error de violación de constraint único
     if (err.code === 'P2002') {
-      const field = (err.meta?.target as string[])?.join(', ') || 'campo';
+      const target = err.meta?.target;
+      const field = Array.isArray(target) ? target.join(', ') : (typeof target === 'string' ? target : 'campo');
       res.status(409).json({
         success: false,
         error: {
