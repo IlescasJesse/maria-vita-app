@@ -11,6 +11,7 @@ import studyRequestRoutes from './studyRequestRoutes';
 import contactRoutes from './contactRoutes';
 import userRoutes from './userRoutes';
 import uploadRoutes from './uploadRoutes';
+import situacionalRoutes from './situacionalRoutes';
 
 const router = Router();
 
@@ -59,6 +60,9 @@ router.use('/users', userRoutes);
 
 // Módulo de Upload e IA
 router.use('/upload', uploadRoutes);
+
+// Módulo Situacional
+router.use('/situacional', situacionalRoutes);
 
 // Módulo de Agenda (placeholder para futura implementación)
 // router.use('/appointments', appointmentRoutes);

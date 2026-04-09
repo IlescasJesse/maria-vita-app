@@ -36,7 +36,8 @@ export const ROLE_PERMISSIONS = {
     'manage_database',
     'view_analytics',
     'manage_billing',
-    'system_configuration'
+    'system_configuration',
+    'manage_situacional'
   ],
   admin: [
     'manage_users',

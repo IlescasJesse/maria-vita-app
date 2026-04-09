@@ -41,7 +41,7 @@ async function main() {
 
     // Contraseñas para diferentes usuarios
     const superAdminPassword = 'Ajetreo1512!';
-    const doctorPassword = 'Doctor2026!';
+    const doctorPassword = 'ESPECIALISTA!';
 
     const hashedSuperAdminPassword = await bcrypt.hash(superAdminPassword, 10);
     const hashedDoctorPassword = await bcrypt.hash(doctorPassword, 10);
@@ -70,31 +70,31 @@ async function main() {
     // ============================================
     console.log('👨‍⚕️ Creating specialists...');
 
-    // Datos reales de médicos
+    // Datos reales de médicos simplificados
     const medicosData = [
-      { name: 'DR. JUVENTINO GONZALES', specialty: 'CIRUJANO UROLOGO CERTIFICADO', office: 'Consultorio 101' },
-      { name: 'DR. MIGUEL ANGEL ESPINOZA FRANKLIN', specialty: 'TRAUMATOLOGIA Y ORTOPEDIA', office: 'Consultorio 102' },
-      { name: 'DR. VERONICA OLVERA SUMANO', specialty: 'GENETISTA PATOLOGIA HEREDITARIA', office: 'Consultorio 103' },
-      { name: 'DR. ARILDA VELASQUEZ RUIZ', specialty: 'CLINICA DEL DOLOR Y TANATOLOGIA', office: 'Consultorio 104' },
-      { name: 'DR. LUIS BARRAZA', specialty: 'GERIATRA', office: 'Consultorio 105' },
-      { name: 'DR. JOSUE ANGELES', specialty: 'CARDIOLOGO INTERVENCIONISTA', office: 'Consultorio 106' },
-      { name: 'DR. ABIGAIL JUAREZ CRUZ', specialty: 'INFECTOLOGA INTERNISTA', office: 'Consultorio 107' },
-      { name: 'DR. ERCK ORLANDO VASQUEZ CRUZ', specialty: 'CIRUGIA GENERAL', office: 'Consultorio 108' },
-      { name: 'DR. JESUS OMAR MORALES RUIZ', specialty: 'INTENSIVISTA PEDIATRA', office: 'Consultorio 109' },
-      { name: 'DRA. SELENA SALAZAR', specialty: 'NEUMOLOGIA PARA ADULTOS', office: 'Consultorio 110' },
-      { name: 'DR. URIEL MARTINEZ CUEVAS', specialty: 'OTORRINOLARINGOLOGO', office: 'Consultorio 111' },
-      { name: 'DR. APOLONIO VASQUEZ', specialty: 'MEDICO GENERAL', office: 'Consultorio 112' },
-      { name: 'DR. DANIEL VENEGAS CORDOBA', specialty: 'MEDICO FAMILIAR', office: 'Consultorio 113' },
-      { name: 'DR. SERGIO LOPEZ BERNAL', specialty: 'MEDICO IMAGENOLOGO', office: 'Sala de Imagen' },
-      { name: 'DR. ABELARDO RAMIREZ DAVILA', specialty: 'NORMATIVIDAD Y COFEPRIS', office: 'Oficina Administrativa' },
-      { name: 'DRA. ANA', specialty: 'URGENCIOLOGA', office: 'Sala de Urgencias' },
+      'DR. JUVENTINO GONZALES',
+      'DR. MIGUEL ANGEL ESPINOZA FRANKLIN',
+      'DR. VERONICA OLVERA SUMANO',
+      'DR. ARILDA VELASQUEZ RUIZ',
+      'DR. LUIS BARRAZA',
+      'DR. JOSUE ANGELES',
+      'DR. ABIGAIL JUAREZ CRUZ',
+      'DR. ERCK ORLANDO VASQUEZ CRUZ',
+      'DR. JESUS OMAR MORALES RUIZ',
+      'DRA. SELENA SALAZAR',
+      'DR. URIEL MARTINEZ CUEVAS',
+      'DR. APOLONIO VASQUEZ',
+      'DR. DANIEL VENEGAS CORDOBA',
+      'DR. SERGIO LOPEZ BERNAL',
+      'DR. ABELARDO RAMIREZ DAVILA',
+      'DRA. ANA',
     ];
 
     const specialists = [];
 
     for (let i = 0; i < medicosData.length; i++) {
-      const medico = medicosData[i]!; // TypeScript non-null assertion
-      const nameParts = medico.name.trim().split(/\s+/);
+      const medicoName = medicosData[i]!; // TypeScript non-null assertion
+      const nameParts = medicoName.trim().split(/\s+/);
       const hasTitle = /^DRA?\.?$/i.test(nameParts[0] || '');
       const suffix = hasTitle ? nameParts[0]!.toUpperCase().replace(/\.$/, '') + '.' : 'Dr.';
       const cleanNameParts = hasTitle ? nameParts.slice(1) : nameParts;
@@ -110,11 +110,6 @@ async function main() {
         .split(' ')
         .join('.');
 
-      // Generar fecha de nacimiento aleatoria entre 1960-1985
-      const birthYear = 1960 + Math.floor(i * 1.5);
-      const birthMonth = (i % 12) + 1;
-      const birthDay = ((i * 7) % 28) + 1;
-
       const specialistUser = await prisma.user.create({
         data: {
           email: `${emailName}@maria-vita.mx`,
@@ -123,8 +118,6 @@ async function main() {
           suffix: suffix,
           firstName: firstName,
           lastName: lastName,
-          dateOfBirth: new Date(birthYear, birthMonth - 1, birthDay),
-          phone: `555${(1234571 + i).toString()}`,
           isActive: true,
           isNew: true, // Debe completar perfil
         },
@@ -134,14 +127,8 @@ async function main() {
         data: {
           userId: specialistUser.id,
           fullName,
-          specialty: medico.specialty,
+          specialty: 'Especialista', // Valor por defecto
           licenseNumber: `LIC-MV-${String(i + 1).padStart(3, '0')}`,
-          assignedOffice: medico.office,
-          consultationFee: medico.specialty.includes('GENERAL') || medico.specialty.includes('FAMILIAR') ? 800.0 :
-            medico.specialty.includes('CIRUGIA') || medico.specialty.includes('CARDIO') ? 2500.0 :
-              medico.specialty.includes('IMAGEN') || medico.specialty.includes('RADIO') ? 2000.0 : 1500.0,
-          biography: `Especialista en ${medico.specialty}`,
-          yearsOfExperience: 5 + Math.floor(i * 1.2),
           isAvailable: true,
         },
       });
@@ -171,14 +158,11 @@ async function main() {
     console.log('   ├────────────────────────────────────────┤');
     console.log('   │ 16 Médicos Mier y Terán                │');
     console.log('   │ Todos comparten contraseña             │');
-    console.log('   │ Password: Doctor2026!                  │');
+    console.log('   │ Password: ESPECIALISTA!                │');
     console.log('   │ Deben completar perfil al iniciar      │');
     console.log('   └────────────────────────────────────────┘');
     console.log('\n💊 16 Médicos Especialistas Mier y Terán creados');
-    console.log('   - Todos incluyen: Sufijo, Nombre, Apellidos, Fecha de Nacimiento');
-    console.log('   - Urología, Traumatología, Genética');
-    console.log('   - Cardiología, Neumología, Pediatría');
-    console.log('   - Medicina General, Imagenología, y más...\n');
+    console.log('   - Solo información básica: Sufijo, Nombre, Email');
     console.log('\n');
   } catch (error) {
     console.error('❌ Error during seeding:', error);

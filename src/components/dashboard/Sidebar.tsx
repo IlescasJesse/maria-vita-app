@@ -15,6 +15,8 @@ import StorageIcon from '@mui/icons-material/Storage';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import PaymentIcon from '@mui/icons-material/Payment';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import AssignmentIcon from '@mui/icons-material/Assignment';
+import ManageSearchIcon from '@mui/icons-material/ManageSearch';
 import { useAuth } from '@/hooks/useAuth';
 import { getRoleLabel, getRoleColor } from '@/lib/permissions';
 import { useTheme } from '@mui/material/styles';
@@ -91,6 +93,18 @@ export default function Sidebar({ activeModule, onModuleChange, isOpen, mobileOp
       label: 'Configuración',
       icon: <SettingsIcon />,
       permission: 'manage_settings',
+    },
+    {
+      id: 'situacional',
+      label: 'Situacional',
+      icon: <AssignmentIcon />,
+      permission: null, // Visible para todos los roles
+    },
+    {
+      id: 'situacional_admin',
+      label: 'Gestión Situacional',
+      icon: <ManageSearchIcon />,
+      permission: 'manage_situacional',
     },
   ];
 

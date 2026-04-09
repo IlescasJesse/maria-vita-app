@@ -21,6 +21,7 @@
   "dependencies": {
     "@emotion/react": "^11.13.0",
     "@emotion/styled": "^11.13.0",
+    "@hookform/resolvers": "^5.2.2",
     "@mui/icons-material": "^5.16.0",
     "@mui/material": "^5.16.0",
     "@mui/material-nextjs": "^7.3.7",
@@ -43,6 +44,7 @@
     "prisma": "5.22.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
+    "react-hook-form": "^7.72.0",
     "zod": "^3.23.0"
   },
   "devDependencies": {

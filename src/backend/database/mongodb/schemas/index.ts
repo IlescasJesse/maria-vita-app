@@ -284,11 +284,104 @@ NotificationSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 export const Notification = mongoose.model<INotification>('Notification', NotificationSchema);
 
 // ============================================
+// ESQUEMA DE REQUISICIONES SITUACIONALES
+// ============================================
+
+export interface IRequisicion extends Document {
+  folio: string;
+  fecha_creacion: Date;
+  solicitante: {
+    nombre: string;
+    perfil: string;
+    area: string;
+    userId: string;
+  };
+  tipo: 'nueva_funcion' | 'mejora' | 'error' | 'comportamiento';
+  modulo_afectado: string;
+  respuestas_usuario: Record<string, any>;
+  respuestas_admin?: Record<string, any>;
+  prioridad_usuario: number;
+  prioridad_tecnica?: 'baja' | 'media' | 'alta' | 'epica';
+  estado: 'nuevo' | 'en_revision' | 'en_desarrollo' | 'completado' | 'rechazado' | 'pausado';
+  sprint_asignado?: string;
+  notas_dev?: string;
+  adjuntos?: string[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const RequisicionSchema = new Schema<IRequisicion>({
+  folio: {
+    type: String,
+    required: true,
+    unique: true,
+    index: true
+  },
+  fecha_creacion: {
+    type: Date,
+    default: Date.now,
+    index: true
+  },
+  solicitante: {
+    nombre: { type: String, required: true },
+    perfil: { type: String, required: true },
+    area: { type: String, required: true },
+    userId: { type: String, required: true, index: true }
+  },
+  tipo: {
+    type: String,
+    required: true,
+    enum: ['nueva_funcion', 'mejora', 'error', 'comportamiento']
+  },
+  modulo_afectado: {
+    type: String,
+    required: true,
+    index: true
+  },
+  respuestas_usuario: {
+    type: Schema.Types.Mixed,
+    default: {}
+  },
+  respuestas_admin: {
+    type: Schema.Types.Mixed,
+    default: {}
+  },
+  prioridad_usuario: {
+    type: Number,
+    min: 1,
+    max: 5,
+    required: true
+  },
+  prioridad_tecnica: {
+    type: String,
+    enum: ['baja', 'media', 'alta', 'epica']
+  },
+  estado: {
+    type: String,
+    enum: ['nuevo', 'en_revision', 'en_desarrollo', 'completado', 'rechazado', 'pausado'],
+    default: 'nuevo',
+    index: true
+  },
+  sprint_asignado: String,
+  notas_dev: String,
+  adjuntos: [String]
+}, {
+  collection: 'requisiciones',
+  timestamps: true
+});
+
+RequisicionSchema.index({ 'solicitante.userId': 1, fecha_creacion: -1 });
+RequisicionSchema.index({ estado: 1, modulo_afectado: 1 });
+
+export const Requisicion = mongoose.model<IRequisicion>('Requisicion', RequisicionSchema);
+
+// ============================================
 // EXPORTACIONES
 // ============================================
 
 export default {
   ActivityLog,
   StudyResult,
-  Notification
+  Notification,
+  Requisicion
 };

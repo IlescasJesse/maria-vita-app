@@ -25,6 +25,7 @@ import AnalyticsModule from '@/components/dashboard/modules/AnalyticsModule';
 import BillingModule from '@/components/dashboard/modules/BillingModule';
 import DatabaseModule from '@/components/dashboard/modules/DatabaseModule';
 import SettingsModule from '@/components/dashboard/modules/SettingsModule';
+import SituacionalModule from '@/components/dashboard/modules/SituacionalModule';
 
 export default function DashboardPage() {
   const { user, isLoading, isAuthenticated, logout } = useAuth();
@@ -76,6 +77,10 @@ export default function DashboardPage() {
         return <DatabaseModule />;
       case 'settings':
         return <SettingsModule />;
+      case 'situacional':
+        return <SituacionalModule />;
+      case 'situacional_admin':
+        return <SituacionalModule adminView />;
       default:
         return <OverviewModule />;
     }

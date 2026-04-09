@@ -17,6 +17,15 @@ if command -v pm2 >/dev/null 2>&1; then
     USE_PM2=true
 fi
 
+require_env_var() {
+    local key="$1"
+    local value="${!key:-}"
+    if [ -z "$value" ]; then
+        echo "❌ Falta variable requerida: $key en $ENV_FILE"
+        exit 1
+    fi
+}
+
 wait_for_http() {
     local url="$1"
     local name="$2"
@@ -57,14 +66,13 @@ set -a
 . "$ENV_FILE"
 set +a
 
-DATABASE_URL_FROM_ENV_FILE=$(grep -E '^DATABASE_URL=' "$ENV_FILE" | tail -n 1 | cut -d '=' -f2- | sed 's/^"//;s/"$//' | sed "s/^'//;s/'$//" | tr -d '\r' | xargs)
+require_env_var "DATABASE_URL"
+require_env_var "MONGODB_URI"
 
-if [ -z "$DATABASE_URL_FROM_ENV_FILE" ]; then
-    echo "❌ DATABASE_URL no está definida en $ENV_FILE"
-    exit 1
-fi
+DATABASE_URL="${DATABASE_URL//$'\r'/}"
+MONGODB_URI="${MONGODB_URI//$'\r'/}"
 
-echo "✅ DATABASE_URL detectada desde $ENV_FILE"
+echo "✅ Variables críticas detectadas desde $ENV_FILE"
 
 # 2. Pull de los últimos cambios
 echo "⬇️  Descargando últimos cambios de GitHub..."
@@ -76,18 +84,18 @@ npm ci --include=dev || { echo "❌ Error instalando dependencias"; exit 1; }
 
 # 4. Regenerar cliente de Prisma
 echo "🔧 Regenerando cliente de Prisma..."
-DATABASE_URL="$DATABASE_URL_FROM_ENV_FILE" npx prisma generate || { echo "❌ Error generando cliente de Prisma"; exit 1; }
+DATABASE_URL="$DATABASE_URL" npx prisma generate || { echo "❌ Error generando cliente de Prisma"; exit 1; }
 
 # 5. Ejecutar migraciones de base de datos
 echo "🗄️  Aplicando migraciones de base de datos..."
-if ! DATABASE_URL="$DATABASE_URL_FROM_ENV_FILE" npx prisma migrate deploy; then
+if ! DATABASE_URL="$DATABASE_URL" npx prisma migrate deploy; then
     echo "⚠️  Falló prisma migrate deploy. Intentando recuperación automática..."
 
     # Caso común: la columna photo_url ya existe manualmente y la migración no está marcada como aplicada.
-    if DATABASE_URL="$DATABASE_URL_FROM_ENV_FILE" npx prisma migrate resolve --applied 20260315120000_add_user_photo_url >/dev/null 2>&1; then
+    if DATABASE_URL="$DATABASE_URL" npx prisma migrate resolve --applied 20260315120000_add_user_photo_url >/dev/null 2>&1; then
         echo "   ✅ Migración 20260315120000_add_user_photo_url marcada como aplicada"
         echo "   🔁 Reintentando prisma migrate deploy..."
-        DATABASE_URL="$DATABASE_URL_FROM_ENV_FILE" npx prisma migrate deploy || { echo "❌ Error aplicando migraciones después de recuperación automática"; exit 1; }
+        DATABASE_URL="$DATABASE_URL" npx prisma migrate deploy || { echo "❌ Error aplicando migraciones después de recuperación automática"; exit 1; }
     else
         echo "❌ Error aplicando migraciones"
         echo "   Ejecuta: npx prisma migrate status"
@@ -138,12 +146,8 @@ pkill -f "ts-node.*server.ts" 2>/dev/null || true
 # Esperar a que los procesos terminen
 sleep 2
 
-BACKEND_PORT=$(grep -E '^BACKEND_PORT=' "$ENV_FILE" | tail -n 1 | cut -d '=' -f2- | tr -d '"' | tr -d "'" | xargs)
-FRONTEND_PORT=$(grep -E '^PORT=' "$ENV_FILE" | tail -n 1 | cut -d '=' -f2- | tr -d '"' | tr -d "'" | xargs)
-BACKEND_INTERNAL_URL=$(grep -E '^BACKEND_INTERNAL_URL=' "$ENV_FILE" | tail -n 1 | cut -d '=' -f2- | tr -d '"' | tr -d "'" | xargs)
-
 BACKEND_PORT=${BACKEND_PORT:-$BACKEND_PORT_DEFAULT}
-FRONTEND_PORT=${FRONTEND_PORT:-$FRONTEND_PORT_DEFAULT}
+FRONTEND_PORT=${PORT:-$FRONTEND_PORT_DEFAULT}
 BACKEND_INTERNAL_URL=${BACKEND_INTERNAL_URL:-http://127.0.0.1:${BACKEND_PORT}/api}
 
 # 9. Iniciar servicios en background
