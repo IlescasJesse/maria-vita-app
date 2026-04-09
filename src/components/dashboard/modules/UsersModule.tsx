@@ -580,18 +580,23 @@ export default function UsersModule() {
 
                 setSuccess('Usuario creado exitosamente');
             } else {
-                const editPayload = editingUser.role === 'ADMIN'
-                    ? {
+                const editPayload = {
+                        suffix: formData.suffix || null,
+                        firstName: formData.firstName,
+                        lastName: formData.lastName,
+                        phone: formData.phone || null,
+                        dateOfBirth: formData.dateOfBirth || null,
                         isActive: formData.isActive,
-                        adminPermissions: formData.adminPermissions,
-                    }
-                    : {
-                        isActive: formData.isActive,
+                        ...(editingUser.role === 'ADMIN' ? { adminPermissions: formData.adminPermissions } : {}),
                     };
 
                 const previousUser = editingUser;
                 const optimisticUser: UserRecord = {
                     ...editingUser,
+                    suffix: formData.suffix || null,
+                    firstName: formData.firstName,
+                    lastName: formData.lastName,
+                    phone: formData.phone || null,
                     isActive: formData.isActive,
                     adminPermissions: editingUser.role === 'ADMIN' ? formData.adminPermissions : editingUser.adminPermissions,
                 };
@@ -1065,7 +1070,7 @@ export default function UsersModule() {
                 <DialogTitle>{getEditDialogTitle(editingUser)}</DialogTitle>
                 <DialogContent>
                     <Stack spacing={2} sx={{ mt: 1 }}>
-                        {!editingUser ? (
+                        {!editingUser && (
                             <>
                                 <TextField
                                     label="Email"
@@ -1092,82 +1097,78 @@ export default function UsersModule() {
                                         </MenuItem>
                                     ))}
                                 </TextField>
-
-                                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                                    <TextField
-                                        select
-                                        label="Prefijo"
-                                        value={formData.suffix}
-                                        onChange={(event) => handleChange('suffix', event.target.value)}
-                                        fullWidth
-                                    >
-                                        <MenuItem value="">Sin prefijo</MenuItem>
-                                        {suffixes.map((suffix) => (
-                                            <MenuItem key={suffix} value={suffix}>
-                                                {suffix}
-                                            </MenuItem>
-                                        ))}
-                                    </TextField>
-
-                                    <TextField
-                                        label="Teléfono"
-                                        value={formData.phone}
-                                        onChange={(event) => handleChange('phone', event.target.value)}
-                                        onBlur={(event) => handleBlur('phone', event.target.value)}
-                                        error={Boolean(fieldErrors.phone)}
-                                        helperText={fieldErrors.phone}
-                                        fullWidth
-                                    />
-                                </Stack>
-
-                                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                                    <TextField
-                                        label="Nombre"
-                                        value={formData.firstName}
-                                        onChange={(event) => handleChange('firstName', event.target.value)}
-                                        onBlur={(event) => handleBlur('firstName', event.target.value)}
-                                        error={Boolean(fieldErrors.firstName)}
-                                        helperText={fieldErrors.firstName}
-                                        fullWidth
-                                    />
-
-                                    <TextField
-                                        label="Apellidos"
-                                        value={formData.lastName}
-                                        onChange={(event) => handleChange('lastName', event.target.value)}
-                                        onBlur={(event) => handleBlur('lastName', event.target.value)}
-                                        error={Boolean(fieldErrors.lastName)}
-                                        helperText={fieldErrors.lastName}
-                                        fullWidth
-                                    />
-                                </Stack>
-
-                                <TextField
-                                    label="Fecha de nacimiento"
-                                    type="date"
-                                    value={formData.dateOfBirth}
-                                    onChange={(event) => handleChange('dateOfBirth', event.target.value)}
-                                    InputLabelProps={{ shrink: true }}
-                                    fullWidth
-                                />
-
-                                <TextField
-                                    label="Contraseña temporal"
-                                    type="password"
-                                    value={formData.tempPassword}
-                                    onChange={(event) => handleChange('tempPassword', event.target.value)}
-                                    onBlur={(event) => handleBlur('tempPassword', event.target.value)}
-                                    error={Boolean(fieldErrors.tempPassword)}
-                                    helperText={fieldErrors.tempPassword}
-                                    fullWidth
-                                />
                             </>
-                        ) : (
-                            <Alert severity="info">
-                                {editingUser.role === 'ADMIN'
-                                    ? 'Desde esta vista administrativa solo se gestionan permisos y estado de acceso del administrador.'
-                                    : 'El perfil profesional o personal se edita desde la cuenta del propio usuario. Aquí solo gestionas su acceso al sistema.'}
-                            </Alert>
+                        )}
+
+                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                            <TextField
+                                select
+                                label="Prefijo"
+                                value={formData.suffix}
+                                onChange={(event) => handleChange('suffix', event.target.value)}
+                                fullWidth
+                            >
+                                <MenuItem value="">Sin prefijo</MenuItem>
+                                {suffixes.map((suffix) => (
+                                    <MenuItem key={suffix} value={suffix}>
+                                        {suffix}
+                                    </MenuItem>
+                                ))}
+                            </TextField>
+
+                            <TextField
+                                label="Teléfono"
+                                value={formData.phone}
+                                onChange={(event) => handleChange('phone', event.target.value)}
+                                onBlur={(event) => handleBlur('phone', event.target.value)}
+                                error={Boolean(fieldErrors.phone)}
+                                helperText={fieldErrors.phone}
+                                fullWidth
+                            />
+                        </Stack>
+
+                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                            <TextField
+                                label="Nombre"
+                                value={formData.firstName}
+                                onChange={(event) => handleChange('firstName', event.target.value)}
+                                onBlur={(event) => handleBlur('firstName', event.target.value)}
+                                error={Boolean(fieldErrors.firstName)}
+                                helperText={fieldErrors.firstName}
+                                fullWidth
+                            />
+
+                            <TextField
+                                label="Apellidos"
+                                value={formData.lastName}
+                                onChange={(event) => handleChange('lastName', event.target.value)}
+                                onBlur={(event) => handleBlur('lastName', event.target.value)}
+                                error={Boolean(fieldErrors.lastName)}
+                                helperText={fieldErrors.lastName}
+                                fullWidth
+                            />
+                        </Stack>
+
+                        <TextField
+                            label="Fecha de nacimiento"
+                            type="date"
+                            value={formData.dateOfBirth}
+                            onChange={(event) => handleChange('dateOfBirth', event.target.value)}
+                            InputLabelProps={{ shrink: true }}
+                            fullWidth
+                        />
+
+                        {!editingUser && (
+                            <TextField
+                                label="Contraseña temporal"
+                                type="password"
+                                value={formData.tempPassword}
+                                onChange={(event) => handleChange('tempPassword', event.target.value)}
+                                onBlur={(event) => handleBlur('tempPassword', event.target.value)}
+                                error={Boolean(fieldErrors.tempPassword)}
+                                helperText={fieldErrors.tempPassword}
+                                fullWidth
+                            />
                         )}
 
                         <FormControlLabel
