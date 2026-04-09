@@ -117,9 +117,16 @@ export default function Sidebar({ activeModule, onModuleChange, isOpen, mobileOp
     <Box sx={{ overflow: 'auto', height: '100%', display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ p: 3, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
         <Box>
-          <Typography variant="h5" fontWeight="bold" gutterBottom>
-            Maria Vita
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+            <img
+              src="/MARIA-VITA OUTLINED.png"
+              alt="Maria Vita"
+              style={{ width: 32, height: 32, objectFit: 'contain' }}
+            />
+            <Typography variant="h5" fontWeight="bold">
+              Maria Vita
+            </Typography>
+          </Box>
           <Typography variant="body2" color="text.secondary" gutterBottom>
             Sistema de Gestión
           </Typography>

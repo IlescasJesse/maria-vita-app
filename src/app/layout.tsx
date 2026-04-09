@@ -9,7 +9,9 @@ export const metadata: Metadata = {
   title: 'Maria Vita - Sistema Médico',
   description: 'Sistema integral de gestión médica para Maria Vita',
   icons: {
-    icon: '/favicon.ico',
+    icon: '/MARIA-VITA%20OUTLINED.png',
+    shortcut: '/MARIA-VITA%20OUTLINED.png',
+    apple: '/MARIA-VITA%20OUTLINED.png',
   },
 };
 
