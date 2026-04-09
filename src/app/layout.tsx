@@ -8,11 +8,6 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata: Metadata = {
   title: 'Maria Vita - Sistema Médico',
   description: 'Sistema integral de gestión médica para Maria Vita',
-  icons: {
-    icon: '/MARIA-VITA%20OUTLINED.png',
-    shortcut: '/MARIA-VITA%20OUTLINED.png',
-    apple: '/MARIA-VITA%20OUTLINED.png',
-  },
 };
 
 export const viewport: Viewport = {

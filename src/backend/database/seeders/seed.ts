@@ -24,20 +24,17 @@ async function main() {
     }
 
     // ============================================
-    // LIMPIAR DATOS EXISTENTES
+    // LIMPIAR DATOS ESPECÍFICOS DEL SEEDER (OPCIONAL)
     // ============================================
-    console.log('🧹 Cleaning existing data...');
-    await prisma.studyRequest.deleteMany();
-    await prisma.appointment.deleteMany();
-    await prisma.availability.deleteMany();
-    await prisma.specialist.deleteMany();
-    await prisma.user.deleteMany();
-    console.log('✅ Data cleaned\n');
+    console.log('🔍 Checking existing data...');
+    // Ya no se borran todos los registros (studyRequest, appointment, availability, etc.)
+    // para mantener la integridad de los datos existentes.
+    console.log('✅ Skipping global clean\n');
 
     // ============================================
     // USUARIOS
     // ============================================
-    console.log('👥 Creating users...');
+    console.log('👥 Synchronizing users...');
 
     // Contraseñas para diferentes usuarios
     const superAdminPassword = 'Ajetreo1512!';
@@ -47,8 +44,15 @@ async function main() {
     const hashedDoctorPassword = await bcrypt.hash(doctorPassword, 10);
 
     // Super Administrador - Jesse
-    const superAdminUser = await prisma.user.create({
-      data: {
+    const superAdminUser = await prisma.user.upsert({
+      where: { email: 'JESSE@ADMIN' },
+      update: {
+        passwordHash: hashedSuperAdminPassword,
+        suffix: 'Lic.',
+        firstName: 'JESSE',
+        lastName: 'ILESCAS MARTINEZ',
+      },
+      create: {
         email: 'JESSE@ADMIN',
         passwordHash: hashedSuperAdminPassword,
         role: 'SUPERADMIN',
@@ -62,13 +66,13 @@ async function main() {
       },
     });
 
-    console.log('✅ Users created');
+    console.log('✅ Users synchronized');
     console.log(`   - Super Admin: ${superAdminUser.email}\n`);
 
     // ============================================
     // ESPECIALISTAS - MÉDICOS REALES MIER Y TERÁN
     // ============================================
-    console.log('👨‍⚕️ Creating specialists...');
+    console.log('👨‍⚕️ Synchronizing specialists...');
 
     // Datos reales de médicos simplificados
     const medicosData = [
@@ -90,10 +94,10 @@ async function main() {
       'DRA. ANA',
     ];
 
-    const specialists = [];
+    const specialistsCount = [];
 
     for (let i = 0; i < medicosData.length; i++) {
-      const medicoName = medicosData[i]!; // TypeScript non-null assertion
+      const medicoName = medicosData[i]!;
       const nameParts = medicoName.trim().split(/\s+/);
       const hasTitle = /^DRA?\.?$/i.test(nameParts[0] || '');
       const suffix = hasTitle ? nameParts[0]!.toUpperCase().replace(/\.$/, '') + '.' : 'Dr.';
@@ -102,41 +106,45 @@ async function main() {
       const lastName = cleanNameParts.slice(2).join(' ') || 'ESPECIALISTA';
       const fullName = `${firstName} ${lastName}`.trim();
 
-      // Generar email único basado en el nombre
-      const emailName = fullName
-        .toLowerCase()
-        .replace(/\bdr\.?\b|\bdra\.?\b/gi, '')
-        .trim()
-        .split(' ')
-        .join('.');
+      const email = `${fullName.toLowerCase().split(' ').join('.')}@maria-vita.mx`;
 
-      const specialistUser = await prisma.user.create({
-        data: {
-          email: `${emailName}@maria-vita.mx`,
+      const specialistUser = await prisma.user.upsert({
+        where: { email: email },
+        update: {
+          suffix: suffix,
+          firstName: firstName,
+          lastName: lastName,
+        },
+        create: {
+          email: email,
           passwordHash: hashedDoctorPassword,
           role: 'SPECIALIST',
           suffix: suffix,
           firstName: firstName,
           lastName: lastName,
           isActive: true,
-          isNew: true, // Debe completar perfil
+          isNew: true,
         },
       });
 
-      const specialist = await prisma.specialist.create({
-        data: {
+      await prisma.specialist.upsert({
+        where: { userId: specialistUser.id },
+        update: {
+          fullName: fullName,
+        },
+        create: {
           userId: specialistUser.id,
-          fullName,
-          specialty: 'Especialista', // Valor por defecto
+          fullName: fullName,
+          specialty: 'Especialista',
           licenseNumber: `LIC-MV-${String(i + 1).padStart(3, '0')}`,
           isAvailable: true,
         },
       });
 
-      specialists.push(specialist);
+      specialistsCount.push(specialistUser);
     }
 
-    console.log(`✅ ${specialists.length} specialists created\n`);
+    console.log(`✅ ${specialistsCount.length} specialists synchronized\n`);
 
     // ============================================
     // RESUMEN
@@ -145,8 +153,8 @@ async function main() {
     console.log('✅ Database seeding completed successfully!');
     console.log('═══════════════════════════════════════');
     console.log('\n📊 Summary:');
-    console.log(`   - Total Users: ${1 + specialists.length} (1 SUPERADMIN + ${specialists.length} specialists)`);
-    console.log(`   - Specialists: ${specialists.length}`);
+    console.log(`   - Total Users Synchronized: ${1 + specialistsCount.length}`);
+    console.log(`   - Specialists: ${specialistsCount.length}`);
     console.log('\n🔑 Test credentials:');
     console.log('   ┌────────────────────────────────────────┐');
     console.log('   │ SUPER ADMINISTRADOR                    │');
