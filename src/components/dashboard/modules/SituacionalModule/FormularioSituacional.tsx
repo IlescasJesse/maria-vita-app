@@ -288,7 +288,11 @@ export default function FormularioSituacional({ onSuccess }: Props) {
         render={({ field }) => (
           <FormControl error={!!errors.tipo}>
             <FormLabel>¿Qué tipo de requerimiento deseas registrar? *</FormLabel>
-            <RadioGroup {...field}>
+            <RadioGroup
+              name={field.name}
+              value={field.value ?? ''}
+              onChange={(e) => field.onChange(e.target.value)}
+            >
               <FormControlLabel value="nueva_funcion" control={<Radio />} label="Nueva función — algo que no existe y quisiera que existiera" />
               <FormControlLabel value="mejora" control={<Radio />} label="Mejora — algo que ya existe pero podría funcionar mejor" />
               <FormControlLabel value="error" control={<Radio />} label="Error — algo que no funciona como debería" />
@@ -325,7 +329,11 @@ export default function FormularioSituacional({ onSuccess }: Props) {
         render={({ field }) => (
           <FormControl error={!!errors.frecuencia}>
             <FormLabel>¿Con qué frecuencia te encuentras con esta situación? *</FormLabel>
-            <RadioGroup {...field}>
+            <RadioGroup
+              name={field.name}
+              value={field.value ?? ''}
+              onChange={(e) => field.onChange(e.target.value)}
+            >
               <FormControlLabel value="siempre" control={<Radio />} label="Siempre — cada vez que uso el sistema" />
               <FormControlLabel value="frecuente" control={<Radio />} label="Frecuente — varias veces a la semana" />
               <FormControlLabel value="ocasional" control={<Radio />} label="Ocasional — una o dos veces al mes" />
@@ -342,7 +350,11 @@ export default function FormularioSituacional({ onSuccess }: Props) {
         render={({ field }) => (
           <FormControl error={!!errors.impacto_trabajo}>
             <FormLabel>¿Cómo afecta esta situación tu trabajo diario? *</FormLabel>
-            <RadioGroup {...field}>
+            <RadioGroup
+              name={field.name}
+              value={field.value ?? ''}
+              onChange={(e) => field.onChange(e.target.value)}
+            >
               <FormControlLabel value="bloquea" control={<Radio />} label="Me bloquea completamente — no puedo continuar sin resolverlo" />
               <FormControlLabel value="retrasa" control={<Radio />} label="Me retrasa — tardo más de lo necesario" />
               <FormControlLabel value="incomoda" control={<Radio />} label="Es incómodo — pero puedo continuar de otra manera" />
@@ -463,7 +475,11 @@ export default function FormularioSituacional({ onSuccess }: Props) {
         render={({ field }) => (
           <FormControl error={!!errors.usuarios_afectados}>
             <FormLabel>¿Quiénes más se ven afectados por esta situación? *</FormLabel>
-            <RadioGroup {...field}>
+            <RadioGroup
+              name={field.name}
+              value={field.value ?? ''}
+              onChange={(e) => field.onChange(e.target.value)}
+            >
               <FormControlLabel value="solo_yo" control={<Radio />} label="Solo yo" />
               <FormControlLabel value="mi_area" control={<Radio />} label="Todo mi equipo o área" />
               <FormControlLabel value="varios_areas" control={<Radio />} label="Varias áreas de la clínica" />

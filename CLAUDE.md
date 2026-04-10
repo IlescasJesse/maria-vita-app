@@ -1,6 +1,30 @@
-# CLAUDE.md
+# MariaVita — Sistema de Laboratorio Clínico
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+> Contexto global de Jesse cargado automáticamente desde `~/.claude/CLAUDE.md`
+
+## Stack
+
+Next.js + React + MUI v5 + Express + MySQL (Prisma) + MongoDB (Mongoose) + JWT
+
+## ⚠️ RESTRICCIÓN CRÍTICA DE ENTREGA
+
+**TODO el código se entrega como archivos descargables.**
+**NO usar MCP ni Vercel CLI.** Jesse integra manualmente en el VPS.
+
+## Convenciones MUI v5
+
+- `sx` prop sobre `makeStyles`
+- Sintaxis MUI v5 (no v6)
+- `DataGrid` de `@mui/x-data-grid` para tablas
+- Importaciones: `@mui/material`, `@mui/icons-material`, `@mui/x-data-grid`
+
+## Datos Sensibles y Dominio Clínico
+
+- Sistema clínico — validar bien todos los inputs
+- Facturación: RFC, CURP, CFDI 4.0 si aplica SAT
+- Validaciones: formato RFC mexicano, CURP, CP, catálogos SAT cuando aplique
+
+---
 
 ## Comandos principales
 
@@ -29,9 +53,11 @@ npm run prisma:generate  # Regenerar cliente Prisma tras cambios en schema.prism
 npm run seed             # Poblar BD con datos de prueba
 ```
 
+---
+
 ## Arquitectura general
 
-Monorepo con **frontend Next.js 16** y **backend Express** en el mismo repositorio, separados físicamente en `src/app/` y `src/backend/` respectivamente.
+Monorepo con **frontend Next.js** y **backend Express** en el mismo repositorio, separados en `src/app/` y `src/backend/`.
 
 ### Comunicación frontend ↔ backend
 
@@ -44,20 +70,22 @@ El frontend **nunca accede a la base de datos directamente**. Toda comunicación
 
 ### Base de datos híbrida
 
-- **MySQL** (vía Prisma): datos relacionales principales — usuarios, especialistas, citas, estudios
+- **MySQL** (vía Prisma): datos relacionales — usuarios, especialistas, citas, estudios
   - Schema: `prisma/schema.prisma`
   - Conexión: `DATABASE_URL` en `.env`
-- **MongoDB** (vía Mongoose): logs de actividad, notificaciones, resultados de estudios (futuros)
+- **MongoDB** (vía Mongoose): logs de actividad, notificaciones, resultados de estudios
   - Schemas en: `src/backend/database/mongodb/`
   - Conexión: `MONGODB_URI` en `.env`
 
-Ambas conexiones se inicializan y monitorizan en `src/backend/config/database.ts`.
+Ambas conexiones se inicializan en `src/backend/config/database.ts`.
 
 ### Roles de usuario
 
 `SUPERADMIN` > `ADMIN` > `SPECIALIST` / `RECEPTIONIST` / `PATIENT`
 
-Los permisos se definen en `src/lib/permissions.ts` y se validan en `src/backend/middlewares/auth.ts`.
+Permisos en `src/lib/permissions.ts`, validados en `src/backend/middlewares/auth.ts`.
+
+---
 
 ## Estructura clave
 
@@ -70,27 +98,27 @@ src/
 │   └── api/                # API routes de Next.js (uso limitado, preferir Express)
 │
 ├── backend/                # API Express
-│   ├── server.ts           # Entry point del servidor (puerto 5000)
+│   ├── server.ts           # Entry point (puerto 5000)
 │   ├── config/database.ts  # Conexiones MySQL + MongoDB
 │   ├── controllers/        # Lógica de negocio por módulo
-│   ├── routes/             # Definición de endpoints (index.ts los agrega todos)
+│   ├── routes/             # Endpoints (index.ts los agrega todos)
 │   ├── middlewares/        # auth.ts (JWT), errorHandler.ts, validator.ts
 │   ├── database/
 │   │   ├── mysql/          # Configuración extra de Prisma
 │   │   ├── mongodb/        # Schemas de Mongoose
-│   │   └── seeders/        # seed.ts para poblar la BD
+│   │   └── seeders/        # seed.ts
 │   └── utils/
-│       ├── apiResponse.ts  # Helpers: successResponse(), errorResponse()
+│       ├── apiResponse.ts  # successResponse(), errorResponse()
 │       └── logger.ts       # Winston logger
 │
 ├── components/
 │   ├── ui/                 # Componentes base reutilizables
 │   ├── layout/             # Sidebar, Header, Footer
-│   └── dashboard/modules/  # Componentes de feature (Analytics, Appointments, etc.)
+│   └── dashboard/modules/  # Componentes de feature
 │
 ├── types/
 │   ├── models.ts           # Interfaces de datos principales
-│   ├── enums.ts            # Constantes y enumeraciones del sistema
+│   ├── enums.ts            # Constantes y enumeraciones
 │   └── processStates.ts    # Estados de procesos
 │
 └── lib/
@@ -98,9 +126,12 @@ src/
     └── permissions.ts      # Utilidades de permisos por rol
 ```
 
+---
+
 ## Convenciones importantes
 
 **Formato de respuestas API** — siempre usar los helpers de `src/backend/utils/apiResponse.ts`:
+
 ```typescript
 // Éxito
 res.json(successResponse(data, meta))
@@ -116,13 +147,16 @@ res.status(400).json(errorResponse('VALIDATION_ERROR', 'Mensaje'))
 - `@backend/*` → `src/backend/*`
 
 **Al modificar el schema de Prisma**, siempre ejecutar:
+
 ```bash
 npm run migrate && npm run prisma:generate
 ```
 
+---
+
 ## Variables de entorno requeridas
 
-Copiar `.env.example` como `.env.local` para desarrollo. Las críticas son:
+Copiar `.env.example` como `.env.local` para desarrollo:
 
 ```env
 DATABASE_URL=mysql://usuario:password@localhost:3306/mariavita
@@ -133,13 +167,17 @@ NEXT_PUBLIC_API_URL=/api
 BACKEND_INTERNAL_URL=http://127.0.0.1:5000/api
 ```
 
-`REPLICATE_API_TOKEN` es opcional (solo para mejora de fotos de especialistas con IA).
+`REPLICATE_API_TOKEN` es opcional (mejora de fotos de especialistas con IA).
+
+---
 
 ## Health checks
 
 - Frontend: `http://localhost:3000`
 - Backend: `http://localhost:5000/health` (retorna estado de MySQL y MongoDB)
 - API base: `http://localhost:5000/api`
+
+---
 
 ## Credenciales de prueba (tras `npm run seed`)
 
@@ -150,6 +188,9 @@ BACKEND_INTERNAL_URL=http://127.0.0.1:5000/api
 | SPECIALIST | doctor@mariavita.com | Doctor2026! |
 | PATIENT | paciente1@example.com | Patient2026! |
 
+---
+
 ## Deploy
 
-El deploy al VPS se gestiona con `deploy.sh`. Ver `DEPLOY_VPS.md` para instrucciones completas. En producción se usa `.env.production` (separado de `.env.local`).
+El deploy al VPS se gestiona con `deploy.sh`. Ver `DEPLOY_VPS.md` para instrucciones completas.
+En producción se usa `.env.production` (separado de `.env.local`).
