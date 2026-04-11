@@ -2,10 +2,15 @@
 
 /**
  * FormularioSituacional
- * Stepper de 4 pasos para levantar requerimientos del sistema
+ * Stepper de 4 pasos para levantar requerimientos del sistema.
+ *
+ * IMPORTANTE: Todos los pasos se renderizan siempre (display none/block).
+ * Esto garantiza que todos los Controller de react-hook-form permanecen
+ * montados y registrados, evitando que los valores se pierdan al navegar
+ * entre pasos y que handleSubmit los vea como vacíos.
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -22,9 +27,7 @@ import {
   RadioGroup,
   FormControlLabel,
   Radio,
-  Select,
-  MenuItem,
-  InputLabel,
+  Chip,
   Switch,
   Rating,
   Snackbar,
@@ -39,31 +42,28 @@ import { useAuth } from '@/hooks/useAuth';
 // ─── Schema de validación ────────────────────────────────────────────────────
 
 const schema = z.object({
-  // Paso 1
-  nombre: z.string().min(2, 'Nombre requerido'),
-  perfil: z.string().min(1),
+  nombre: z.string().optional(),
+  perfil: z.string().optional(),
   area: z.string().min(1, 'Selecciona un área'),
 
-  // Paso 2
-  tipo: z.enum(['nueva_funcion', 'mejora', 'error', 'comportamiento'], {
-    required_error: 'Selecciona un tipo de requerimiento'
-  }),
+  tipo: z.string().refine(
+    v => ['nueva_funcion', 'mejora', 'error', 'comportamiento'].includes(v),
+    { message: 'Selecciona un tipo de requerimiento' }
+  ),
   modulo_afectado: z.string().min(1, 'Selecciona el módulo'),
   frecuencia: z.string().min(1, 'Selecciona la frecuencia'),
   impacto_trabajo: z.string().min(1, 'Selecciona el impacto'),
 
-  // Paso 3
   descripcion: z.string().min(20, 'Describe el requerimiento con al menos 20 caracteres'),
   resultado_esperado: z.string().min(10, 'Describe el resultado esperado'),
   pasos_para_reproducir: z.string().optional(),
   campo_adicional_1: z.string().optional(),
   campo_adicional_2: z.string().optional(),
 
-  // Paso 4
   usuarios_afectados: z.string().min(1, 'Indica los usuarios afectados'),
   tiene_proceso_manual: z.boolean(),
   proceso_manual_descripcion: z.string().optional(),
-  urgencia: z.number({ required_error: 'Califica la urgencia' }).min(1).max(5),
+  urgencia: z.number().min(1).max(5),
   desea_contacto: z.boolean()
 });
 
@@ -71,18 +71,18 @@ type FormData = z.infer<typeof schema>;
 
 // ─── Catálogos ───────────────────────────────────────────────────────────────
 
-const AREAS = [
-  'Consultorios', 'Laboratorios', 'Administrativo', 'Marketing', 'Otro'
-];
+const AREAS = ['Consultorios', 'Laboratorios', 'Administrativo', 'Marketing', 'Otro'];
 
 const MODULOS = [
-  'Autenticación', 'Pacientes', 'Agenda / Citas',
-  'Consulta Médica', 'Laboratorio', 'Facturación / Admisión',
-  'Reportes', 'Configuración', 'Otro'
+  'Resumen', 'Usuarios', 'Citas',
+  'Estudios', 'Reportes', 'Analíticas',
+  'Facturación', 'Base de Datos', 'Configuración',
+  'Situacional', 'Otro'
 ];
 
 const PASOS = ['Identificación', 'Tipo de requerimiento', 'Detalle', 'Impacto'];
 
+// Campos obligatorios por paso (para validar al hacer "Siguiente")
 const STEP_FIELDS: Record<number, (keyof FormData)[]> = {
   0: ['area'],
   1: ['tipo', 'modulo_afectado', 'frecuencia', 'impacto_trabajo'],
@@ -90,33 +90,40 @@ const STEP_FIELDS: Record<number, (keyof FormData)[]> = {
   3: ['usuarios_afectados', 'urgencia']
 };
 
-// ─── Preguntas dinámicas según módulo ────────────────────────────────────────
+// ─── Preguntas dinámicas por módulo ──────────────────────────────────────────
 
 const getPreguntasDinamicas = (modulo: string) => {
   switch (modulo) {
-    case 'Consulta Médica':
+    case 'Citas':
       return {
-        label1: '¿En qué parte de la consulta ocurre la situación? (ej: notas, diagnóstico, indicaciones)',
-        label2: '¿Afecta la atención al paciente durante la consulta?',
-        label3: '¿Con qué frecuencia atiendes consultas donde esto ocurre?'
+        label1: '¿En qué parte del flujo de citas ocurre? (ej: agendar, cancelar, recordatorio)',
+        label2: '¿Afecta a un tipo de cita o especialista en particular?'
       };
-    case 'Laboratorio':
+    case 'Estudios':
       return {
-        label1: '¿En qué parte del flujo de laboratorio ocurre? (ej: solicitud, captura de resultados, entrega)',
-        label2: '¿Cuántos estudios aproximados se ven afectados por turno?',
-        label3: '¿Hay alguna muestra o tipo de estudio específico involucrado?'
+        label1: '¿En qué parte del flujo ocurre? (ej: solicitud, captura de resultados, entrega)',
+        label2: '¿Cuántos estudios aproximados se ven afectados por turno?'
       };
-    case 'Facturación / Admisión':
+    case 'Facturación':
       return {
-        label1: '¿En qué punto del proceso de admisión o facturación ocurre?',
-        label2: '¿Hay un paciente o tipo de pago específico donde ocurre más?',
-        label3: '¿Cuántos registros se ven afectados aproximadamente por día?'
+        label1: '¿En qué punto del proceso de facturación ocurre?',
+        label2: '¿Hay un tipo de pago o paciente específico donde ocurre más?'
+      };
+    case 'Usuarios':
+      return {
+        label1: '¿Afecta a un rol en particular? (ej: paciente, especialista, recepcionista)',
+        label2: '¿Ocurre al crear, editar o buscar un usuario?'
+      };
+    case 'Reportes':
+    case 'Analíticas':
+      return {
+        label1: '¿Qué reporte o gráfica específica presenta el problema?',
+        label2: '¿Los datos mostrados son incorrectos, incompletos o no cargan?'
       };
     default:
       return {
         label1: '¿En qué pantalla o sección específica ocurre?',
-        label2: '¿Puedes describir el flujo de pasos que realizas cuando lo detectas?',
-        label3: '¿Existe alguna condición particular que lo desencadene?'
+        label2: '¿Puedes describir el flujo de pasos que realizas cuando lo detectas?'
       };
   }
 };
@@ -138,14 +145,15 @@ export default function FormularioSituacional({ onSuccess }: Props) {
     handleSubmit,
     trigger,
     watch,
+    setValue,
     formState: { errors }
   } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
-      nombre: user ? `${user.firstName} ${user.lastName}` : '',
-      perfil: user?.role ?? '',
+      nombre: '',
+      perfil: '',
       area: '',
-      tipo: undefined,
+      tipo: '',
       modulo_afectado: '',
       frecuencia: '',
       impacto_trabajo: '',
@@ -162,37 +170,32 @@ export default function FormularioSituacional({ onSuccess }: Props) {
     }
   });
 
+  useEffect(() => {
+    if (user) {
+      setValue('nombre', `${user.firstName} ${user.lastName}`);
+      setValue('perfil', user.role);
+    }
+  }, [user, setValue]);
+
   const moduloActual = watch('modulo_afectado');
   const tieneProcesoManual = watch('tiene_proceso_manual');
   const preguntasDinamicas = getPreguntasDinamicas(moduloActual);
 
+  // ─── Navegación ──────────────────────────────────────────────────────────
+
   const handleNext = async () => {
-    const camposDelPaso = STEP_FIELDS[activeStep] ?? [];
-    const valido = await trigger(camposDelPaso);
-    if (valido) setActiveStep(prev => prev + 1);
+    const valido = await trigger(STEP_FIELDS[activeStep]);
+    if (valido) setActiveStep(s => s + 1);
   };
 
-  const handleBack = () => setActiveStep(prev => prev - 1);
+  const handleBack = () => setActiveStep(s => s - 1);
+
+  // ─── Envío ───────────────────────────────────────────────────────────────
 
   const onSubmit = async (data: FormData) => {
     setEnviando(true);
     try {
       const token = localStorage.getItem('token');
-      const respuestas_usuario = {
-        frecuencia: data.frecuencia,
-        impacto_trabajo: data.impacto_trabajo,
-        descripcion: data.descripcion,
-        resultado_esperado: data.resultado_esperado,
-        pasos_para_reproducir: data.pasos_para_reproducir,
-        pregunta_dinamica_1: data.campo_adicional_1,
-        pregunta_dinamica_2: data.campo_adicional_2,
-        usuarios_afectados: data.usuarios_afectados,
-        proceso_manual: data.tiene_proceso_manual
-          ? data.proceso_manual_descripcion
-          : null,
-        desea_contacto: data.desea_contacto
-      };
-
       const res = await fetch('/api/situacional/requisicion', {
         method: 'POST',
         headers: {
@@ -203,7 +206,18 @@ export default function FormularioSituacional({ onSuccess }: Props) {
           area: data.area,
           tipo: data.tipo,
           modulo_afectado: data.modulo_afectado,
-          respuestas_usuario,
+          respuestas_usuario: {
+            frecuencia: data.frecuencia,
+            impacto_trabajo: data.impacto_trabajo,
+            descripcion: data.descripcion,
+            resultado_esperado: data.resultado_esperado,
+            pasos_para_reproducir: data.pasos_para_reproducir,
+            pregunta_dinamica_1: data.campo_adicional_1,
+            pregunta_dinamica_2: data.campo_adicional_2,
+            usuarios_afectados: data.usuarios_afectados,
+            proceso_manual: data.tiene_proceso_manual ? data.proceso_manual_descripcion : null,
+            desea_contacto: data.desea_contacto
+          },
           prioridad_usuario: data.urgencia
         })
       });
@@ -222,330 +236,18 @@ export default function FormularioSituacional({ onSuccess }: Props) {
     }
   };
 
-  // ─── Pasos ───────────────────────────────────────────────────────────────
+  // Si handleSubmit detecta errores en campos de pasos anteriores,
+  // navega al primer paso con error para que el usuario los vea.
+  const handleFinalSubmit = handleSubmit(onSubmit, (fieldErrors) => {
+    for (let step = 0; step <= 3; step++) {
+      if ((STEP_FIELDS[step] ?? []).some(f => f in fieldErrors)) {
+        setActiveStep(step);
+        return;
+      }
+    }
+  });
 
-  const renderPaso0 = () => (
-    <Stack spacing={3}>
-      <Typography variant="subtitle1" fontWeight="bold" color="primary">
-        A — Identificación del solicitante
-      </Typography>
-      <Controller
-        name="nombre"
-        control={control}
-        render={({ field }) => (
-          <TextField
-            {...field}
-            label="Nombre completo"
-            fullWidth
-            disabled
-            helperText="Autocompletado desde tu sesión"
-          />
-        )}
-      />
-      <Controller
-        name="perfil"
-        control={control}
-        render={({ field }) => (
-          <TextField
-            {...field}
-            label="Perfil / Rol"
-            fullWidth
-            disabled
-            helperText="Autocompletado desde tu sesión"
-          />
-        )}
-      />
-      <Controller
-        name="area"
-        control={control}
-        render={({ field }) => (
-          <FormControl fullWidth error={!!errors.area}>
-            <InputLabel>Área donde laboras *</InputLabel>
-            <Select {...field} label="Área donde laboras *">
-              {AREAS.map(a => (
-                <MenuItem key={a} value={a}>{a}</MenuItem>
-              ))}
-            </Select>
-            {errors.area && (
-              <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.75 }}>
-                {errors.area.message}
-              </Typography>
-            )}
-          </FormControl>
-        )}
-      />
-    </Stack>
-  );
-
-  const renderPaso1 = () => (
-    <Stack spacing={3}>
-      <Typography variant="subtitle1" fontWeight="bold" color="primary">
-        B — Tipo de requerimiento
-      </Typography>
-      <Controller
-        name="tipo"
-        control={control}
-        render={({ field }) => (
-          <FormControl error={!!errors.tipo}>
-            <FormLabel>¿Qué tipo de requerimiento deseas registrar? *</FormLabel>
-            <RadioGroup {...field}>
-              <FormControlLabel value="nueva_funcion" control={<Radio />} label="Nueva función — algo que no existe y quisiera que existiera" />
-              <FormControlLabel value="mejora" control={<Radio />} label="Mejora — algo que ya existe pero podría funcionar mejor" />
-              <FormControlLabel value="error" control={<Radio />} label="Error — algo que no funciona como debería" />
-              <FormControlLabel value="comportamiento" control={<Radio />} label="Comportamiento inesperado — algo raro que no sé cómo clasificar" />
-            </RadioGroup>
-            {errors.tipo && <Typography variant="caption" color="error">{errors.tipo.message}</Typography>}
-          </FormControl>
-        )}
-      />
-
-      <Controller
-        name="modulo_afectado"
-        control={control}
-        render={({ field }) => (
-          <FormControl fullWidth error={!!errors.modulo_afectado}>
-            <InputLabel>Módulo o sección del sistema *</InputLabel>
-            <Select {...field} label="Módulo o sección del sistema *">
-              {MODULOS.map(m => (
-                <MenuItem key={m} value={m}>{m}</MenuItem>
-              ))}
-            </Select>
-            {errors.modulo_afectado && (
-              <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.75 }}>
-                {errors.modulo_afectado.message}
-              </Typography>
-            )}
-          </FormControl>
-        )}
-      />
-
-      <Controller
-        name="frecuencia"
-        control={control}
-        render={({ field }) => (
-          <FormControl error={!!errors.frecuencia}>
-            <FormLabel>¿Con qué frecuencia te encuentras con esta situación? *</FormLabel>
-            <RadioGroup {...field}>
-              <FormControlLabel value="siempre" control={<Radio />} label="Siempre — cada vez que uso el sistema" />
-              <FormControlLabel value="frecuente" control={<Radio />} label="Frecuente — varias veces a la semana" />
-              <FormControlLabel value="ocasional" control={<Radio />} label="Ocasional — una o dos veces al mes" />
-              <FormControlLabel value="rara_vez" control={<Radio />} label="Rara vez — muy pocas veces" />
-            </RadioGroup>
-            {errors.frecuencia && <Typography variant="caption" color="error">{errors.frecuencia.message}</Typography>}
-          </FormControl>
-        )}
-      />
-
-      <Controller
-        name="impacto_trabajo"
-        control={control}
-        render={({ field }) => (
-          <FormControl error={!!errors.impacto_trabajo}>
-            <FormLabel>¿Cómo afecta esta situación tu trabajo diario? *</FormLabel>
-            <RadioGroup {...field}>
-              <FormControlLabel value="bloquea" control={<Radio />} label="Me bloquea completamente — no puedo continuar sin resolverlo" />
-              <FormControlLabel value="retrasa" control={<Radio />} label="Me retrasa — tardo más de lo necesario" />
-              <FormControlLabel value="incomoda" control={<Radio />} label="Es incómodo — pero puedo continuar de otra manera" />
-              <FormControlLabel value="estetico" control={<Radio />} label="Solo estético — no afecta el flujo de trabajo" />
-            </RadioGroup>
-            {errors.impacto_trabajo && <Typography variant="caption" color="error">{errors.impacto_trabajo.message}</Typography>}
-          </FormControl>
-        )}
-      />
-    </Stack>
-  );
-
-  const renderPaso2 = () => (
-    <Stack spacing={3}>
-      <Typography variant="subtitle1" fontWeight="bold" color="primary">
-        C — Detalle del requerimiento
-        {moduloActual && (
-          <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 1 }}>
-            ({moduloActual})
-          </Typography>
-        )}
-      </Typography>
-
-      <Controller
-        name="descripcion"
-        control={control}
-        render={({ field }) => (
-          <TextField
-            {...field}
-            label="Describe la situación con tus propias palabras *"
-            multiline
-            rows={4}
-            fullWidth
-            error={!!errors.descripcion}
-            helperText={errors.descripcion?.message ?? 'Sin tecnicismos — describe qué pasa y cuándo'}
-          />
-        )}
-      />
-
-      <Controller
-        name="resultado_esperado"
-        control={control}
-        render={({ field }) => (
-          <TextField
-            {...field}
-            label="¿Cómo debería funcionar idealmente? *"
-            multiline
-            rows={3}
-            fullWidth
-            error={!!errors.resultado_esperado}
-            helperText={errors.resultado_esperado?.message}
-          />
-        )}
-      />
-
-      {moduloActual === 'Consulta Médica' || moduloActual === 'Laboratorio' || moduloActual === 'Facturación / Admisión' ? null : (
-        <Controller
-          name="pasos_para_reproducir"
-          control={control}
-          render={({ field }) => (
-            <TextField
-              {...field}
-              label="¿Qué pasos hiciste cuando ocurrió? (opcional)"
-              multiline
-              rows={3}
-              fullWidth
-              helperText="Ej: 1. Entré al módulo de citas. 2. Seleccioné un paciente. 3. Apareció el error."
-            />
-          )}
-        />
-      )}
-
-      {/* Preguntas dinámicas según módulo */}
-      <Divider />
-      <Typography variant="body2" color="text.secondary" fontStyle="italic">
-        Preguntas específicas para {moduloActual || 'tu módulo'}:
-      </Typography>
-
-      <Controller
-        name="campo_adicional_1"
-        control={control}
-        render={({ field }) => (
-          <TextField
-            {...field}
-            label={preguntasDinamicas.label1}
-            multiline
-            rows={2}
-            fullWidth
-          />
-        )}
-      />
-
-      <Controller
-        name="campo_adicional_2"
-        control={control}
-        render={({ field }) => (
-          <TextField
-            {...field}
-            label={preguntasDinamicas.label2}
-            multiline
-            rows={2}
-            fullWidth
-          />
-        )}
-      />
-    </Stack>
-  );
-
-  const renderPaso3 = () => (
-    <Stack spacing={3}>
-      <Typography variant="subtitle1" fontWeight="bold" color="primary">
-        D — Impacto y cierre
-      </Typography>
-
-      <Controller
-        name="usuarios_afectados"
-        control={control}
-        render={({ field }) => (
-          <FormControl error={!!errors.usuarios_afectados}>
-            <FormLabel>¿Quiénes más se ven afectados por esta situación? *</FormLabel>
-            <RadioGroup {...field}>
-              <FormControlLabel value="solo_yo" control={<Radio />} label="Solo yo" />
-              <FormControlLabel value="mi_area" control={<Radio />} label="Todo mi equipo o área" />
-              <FormControlLabel value="varios_areas" control={<Radio />} label="Varias áreas de la clínica" />
-              <FormControlLabel value="pacientes" control={<Radio />} label="También afecta a los pacientes" />
-            </RadioGroup>
-            {errors.usuarios_afectados && <Typography variant="caption" color="error">{errors.usuarios_afectados.message}</Typography>}
-          </FormControl>
-        )}
-      />
-
-      <Box>
-        <Controller
-          name="tiene_proceso_manual"
-          control={control}
-          render={({ field }) => (
-            <FormControlLabel
-              control={<Switch {...field} checked={field.value} />}
-              label="¿Tienes alguna forma manual de resolver esto mientras tanto?"
-            />
-          )}
-        />
-        {tieneProcesoManual && (
-          <Controller
-            name="proceso_manual_descripcion"
-            control={control}
-            render={({ field }) => (
-              <TextField
-                {...field}
-                label="Describe brevemente cómo lo resuelves actualmente"
-                multiline
-                rows={2}
-                fullWidth
-                sx={{ mt: 1 }}
-              />
-            )}
-          />
-        )}
-      </Box>
-
-      <Box>
-        <FormLabel component="legend">
-          ¿Qué tan urgente consideras que se resuelva esto? *
-        </FormLabel>
-        <Controller
-          name="urgencia"
-          control={control}
-          render={({ field }) => (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 1 }}>
-              <Rating
-                value={field.value}
-                onChange={(_, val) => field.onChange(val ?? 1)}
-                max={5}
-                size="large"
-              />
-              <Typography variant="body2" color="text.secondary">
-                {field.value === 1 && 'Puede esperar'}
-                {field.value === 2 && 'Baja prioridad'}
-                {field.value === 3 && 'Moderada'}
-                {field.value === 4 && 'Alta prioridad'}
-                {field.value === 5 && 'Urgente'}
-              </Typography>
-            </Box>
-          )}
-        />
-        {errors.urgencia && <Typography variant="caption" color="error">{errors.urgencia.message}</Typography>}
-      </Box>
-
-      <Controller
-        name="desea_contacto"
-        control={control}
-        render={({ field }) => (
-          <FormControlLabel
-            control={<Switch {...field} checked={field.value} />}
-            label="¿Deseas que te contactemos para dar seguimiento o aclarar dudas?"
-          />
-        )}
-      />
-    </Stack>
-  );
-
-  const pasoActual = [renderPaso0, renderPaso1, renderPaso2, renderPaso3][activeStep];
-  const esUltimoPaso = activeStep === PASOS.length - 1;
+  // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
     <Paper sx={{ p: 4 }}>
@@ -558,37 +260,325 @@ export default function FormularioSituacional({ onSuccess }: Props) {
 
       <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
         {PASOS.map(label => (
-          <Step key={label}>
-            <StepLabel>{label}</StepLabel>
-          </Step>
+          <Step key={label}><StepLabel>{label}</StepLabel></Step>
         ))}
       </Stepper>
 
+      {/* Todos los pasos siempre montados — solo se ocultan visualmente */}
       <Box sx={{ minHeight: 300 }}>
-        {pasoActual?.()}
+
+        {/* ── Paso 0 · Identificación ─────────────────────────────────── */}
+        <Box sx={{ display: activeStep === 0 ? 'block' : 'none' }}>
+          <Stack spacing={3}>
+            <Typography variant="subtitle1" fontWeight="bold" color="primary">
+              A — Identificación del solicitante
+            </Typography>
+            <Controller
+              name="nombre"
+              control={control}
+              render={({ field }) => (
+                <TextField {...field} label="Nombre completo" fullWidth disabled
+                  helperText="Autocompletado desde tu sesión" />
+              )}
+            />
+            <Controller
+              name="perfil"
+              control={control}
+              render={({ field }) => (
+                <TextField {...field} label="Perfil / Rol" fullWidth disabled
+                  helperText="Autocompletado desde tu sesión" />
+              )}
+            />
+            <Controller
+              name="area"
+              control={control}
+              render={({ field }) => (
+                <FormControl error={!!errors.area}>
+                  <FormLabel sx={{ mb: 1 }}>Área donde laboras *</FormLabel>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                    {AREAS.map(a => (
+                      <Chip
+                        key={a}
+                        label={a}
+                        clickable
+                        onClick={() => field.onChange(a)}
+                        color={field.value === a ? 'primary' : 'default'}
+                        variant={field.value === a ? 'filled' : 'outlined'}
+                        sx={{ fontWeight: field.value === a ? 700 : 400 }}
+                      />
+                    ))}
+                  </Box>
+                  {errors.area && (
+                    <Typography variant="caption" color="error" sx={{ mt: 0.75 }}>
+                      {errors.area.message}
+                    </Typography>
+                  )}
+                </FormControl>
+              )}
+            />
+          </Stack>
+        </Box>
+
+        {/* ── Paso 1 · Tipo de requerimiento ──────────────────────────── */}
+        <Box sx={{ display: activeStep === 1 ? 'block' : 'none' }}>
+          <Stack spacing={3}>
+            <Typography variant="subtitle1" fontWeight="bold" color="primary">
+              B — Tipo de requerimiento
+            </Typography>
+            <Controller
+              name="tipo"
+              control={control}
+              render={({ field }) => (
+                <FormControl error={!!errors.tipo}>
+                  <FormLabel>¿Qué tipo de requerimiento deseas registrar? *</FormLabel>
+                  <RadioGroup {...field}>
+                    <FormControlLabel value="nueva_funcion" control={<Radio />} label="Nueva función — algo que no existe y quisiera que existiera" />
+                    <FormControlLabel value="mejora" control={<Radio />} label="Mejora — algo que ya existe pero podría funcionar mejor" />
+                    <FormControlLabel value="error" control={<Radio />} label="Error — algo que no funciona como debería" />
+                    <FormControlLabel value="comportamiento" control={<Radio />} label="Comportamiento inesperado — algo raro que no sé cómo clasificar" />
+                  </RadioGroup>
+                  {errors.tipo && <Typography variant="caption" color="error">{errors.tipo.message}</Typography>}
+                </FormControl>
+              )}
+            />
+            <Controller
+              name="modulo_afectado"
+              control={control}
+              render={({ field }) => (
+                <FormControl error={!!errors.modulo_afectado}>
+                  <FormLabel sx={{ mb: 1 }}>Módulo o sección del sistema *</FormLabel>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                    {MODULOS.map(m => (
+                      <Chip
+                        key={m}
+                        label={m}
+                        clickable
+                        onClick={() => field.onChange(m)}
+                        color={field.value === m ? 'primary' : 'default'}
+                        variant={field.value === m ? 'filled' : 'outlined'}
+                        sx={{ fontWeight: field.value === m ? 700 : 400 }}
+                      />
+                    ))}
+                  </Box>
+                  {errors.modulo_afectado && (
+                    <Typography variant="caption" color="error" sx={{ mt: 0.75 }}>
+                      {errors.modulo_afectado.message}
+                    </Typography>
+                  )}
+                </FormControl>
+              )}
+            />
+            <Controller
+              name="frecuencia"
+              control={control}
+              render={({ field }) => (
+                <FormControl error={!!errors.frecuencia}>
+                  <FormLabel>¿Con qué frecuencia te encuentras con esta situación? *</FormLabel>
+                  <RadioGroup {...field}>
+                    <FormControlLabel value="siempre" control={<Radio />} label="Siempre — cada vez que uso el sistema" />
+                    <FormControlLabel value="frecuente" control={<Radio />} label="Frecuente — varias veces a la semana" />
+                    <FormControlLabel value="ocasional" control={<Radio />} label="Ocasional — una o dos veces al mes" />
+                    <FormControlLabel value="rara_vez" control={<Radio />} label="Rara vez — muy pocas veces" />
+                  </RadioGroup>
+                  {errors.frecuencia && <Typography variant="caption" color="error">{errors.frecuencia.message}</Typography>}
+                </FormControl>
+              )}
+            />
+            <Controller
+              name="impacto_trabajo"
+              control={control}
+              render={({ field }) => (
+                <FormControl error={!!errors.impacto_trabajo}>
+                  <FormLabel>¿Cómo afecta esta situación tu trabajo diario? *</FormLabel>
+                  <RadioGroup {...field}>
+                    <FormControlLabel value="bloquea" control={<Radio />} label="Me bloquea completamente — no puedo continuar sin resolverlo" />
+                    <FormControlLabel value="retrasa" control={<Radio />} label="Me retrasa — tardo más de lo necesario" />
+                    <FormControlLabel value="incomoda" control={<Radio />} label="Es incómodo — pero puedo continuar de otra manera" />
+                    <FormControlLabel value="estetico" control={<Radio />} label="Solo estético — no afecta el flujo de trabajo" />
+                  </RadioGroup>
+                  {errors.impacto_trabajo && <Typography variant="caption" color="error">{errors.impacto_trabajo.message}</Typography>}
+                </FormControl>
+              )}
+            />
+          </Stack>
+        </Box>
+
+        {/* ── Paso 2 · Detalle ────────────────────────────────────────── */}
+        <Box sx={{ display: activeStep === 2 ? 'block' : 'none' }}>
+          <Stack spacing={3}>
+            <Typography variant="subtitle1" fontWeight="bold" color="primary">
+              C — Detalle del requerimiento
+              {moduloActual && (
+                <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 1 }}>
+                  ({moduloActual})
+                </Typography>
+              )}
+            </Typography>
+            <Controller
+              name="descripcion"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  label="Describe la situación con tus propias palabras *"
+                  multiline rows={4} fullWidth
+                  error={!!errors.descripcion}
+                  helperText={errors.descripcion?.message ?? 'Sin tecnicismos — describe qué pasa y cuándo'}
+                />
+              )}
+            />
+            <Controller
+              name="resultado_esperado"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  label="¿Cómo debería funcionar idealmente? *"
+                  multiline rows={3} fullWidth
+                  error={!!errors.resultado_esperado}
+                  helperText={errors.resultado_esperado?.message}
+                />
+              )}
+            />
+            <Box sx={{ display: moduloActual !== 'Estudios' && moduloActual !== 'Facturación' ? 'block' : 'none' }}>
+              <Controller
+                name="pasos_para_reproducir"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    label="¿Qué pasos hiciste cuando ocurrió? (opcional)"
+                    multiline rows={3} fullWidth
+                    helperText="Ej: 1. Entré al módulo de citas. 2. Seleccioné un paciente. 3. Apareció el error."
+                  />
+                )}
+              />
+            </Box>
+            <Divider />
+            <Typography variant="body2" color="text.secondary" fontStyle="italic">
+              Preguntas específicas para {moduloActual || 'tu módulo'}:
+            </Typography>
+            <Controller
+              name="campo_adicional_1"
+              control={control}
+              render={({ field }) => (
+                <TextField {...field} label={preguntasDinamicas.label1} multiline rows={2} fullWidth />
+              )}
+            />
+            <Controller
+              name="campo_adicional_2"
+              control={control}
+              render={({ field }) => (
+                <TextField {...field} label={preguntasDinamicas.label2} multiline rows={2} fullWidth />
+              )}
+            />
+          </Stack>
+        </Box>
+
+        {/* ── Paso 3 · Impacto ────────────────────────────────────────── */}
+        <Box sx={{ display: activeStep === 3 ? 'block' : 'none' }}>
+          <Stack spacing={3}>
+            <Typography variant="subtitle1" fontWeight="bold" color="primary">
+              D — Impacto y cierre
+            </Typography>
+            <Controller
+              name="usuarios_afectados"
+              control={control}
+              render={({ field }) => (
+                <FormControl error={!!errors.usuarios_afectados}>
+                  <FormLabel>¿Quiénes más se ven afectados por esta situación? *</FormLabel>
+                  <RadioGroup {...field}>
+                    <FormControlLabel value="solo_yo" control={<Radio />} label="Solo yo" />
+                    <FormControlLabel value="mi_area" control={<Radio />} label="Todo mi equipo o área" />
+                    <FormControlLabel value="varios_areas" control={<Radio />} label="Varias áreas de la clínica" />
+                    <FormControlLabel value="pacientes" control={<Radio />} label="También afecta a los pacientes" />
+                  </RadioGroup>
+                  {errors.usuarios_afectados && <Typography variant="caption" color="error">{errors.usuarios_afectados.message}</Typography>}
+                </FormControl>
+              )}
+            />
+            <Box>
+              <Controller
+                name="tiene_proceso_manual"
+                control={control}
+                render={({ field }) => (
+                  <FormControlLabel
+                    control={<Switch checked={field.value} onChange={e => field.onChange(e.target.checked)} />}
+                    label="¿Tienes alguna forma manual de resolver esto mientras tanto?"
+                  />
+                )}
+              />
+              <Box sx={{ display: tieneProcesoManual ? 'block' : 'none' }}>
+                <Controller
+                  name="proceso_manual_descripcion"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      label="Describe brevemente cómo lo resuelves actualmente"
+                      multiline rows={2} fullWidth sx={{ mt: 1 }}
+                    />
+                  )}
+                />
+              </Box>
+            </Box>
+            <Box>
+              <FormLabel component="legend">¿Qué tan urgente consideras que se resuelva esto? *</FormLabel>
+              <Controller
+                name="urgencia"
+                control={control}
+                render={({ field }) => (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 1 }}>
+                    <Rating
+                      value={field.value}
+                      onChange={(_, val) => field.onChange(val ?? 1)}
+                      max={5}
+                      size="large"
+                    />
+                    <Typography variant="body2" color="text.secondary">
+                      {field.value === 1 && 'Puede esperar'}
+                      {field.value === 2 && 'Baja prioridad'}
+                      {field.value === 3 && 'Moderada'}
+                      {field.value === 4 && 'Alta prioridad'}
+                      {field.value === 5 && 'Urgente'}
+                    </Typography>
+                  </Box>
+                )}
+              />
+              {errors.urgencia && <Typography variant="caption" color="error">{errors.urgencia.message}</Typography>}
+            </Box>
+            <Controller
+              name="desea_contacto"
+              control={control}
+              render={({ field }) => (
+                <FormControlLabel
+                  control={<Switch checked={field.value} onChange={e => field.onChange(e.target.checked)} />}
+                  label="¿Deseas que te contactemos para dar seguimiento o aclarar dudas?"
+                />
+              )}
+            />
+          </Stack>
+        </Box>
+
       </Box>
 
+      {/* ── Navegación ────────────────────────────────────────────────────── */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-        <Button
-          disabled={activeStep === 0}
-          onClick={handleBack}
-          variant="outlined"
-        >
+        <Button disabled={activeStep === 0} onClick={handleBack} variant="outlined">
           Atrás
         </Button>
-
-        {esUltimoPaso ? (
+        {activeStep < PASOS.length - 1 ? (
+          <Button variant="contained" onClick={handleNext}>
+            Siguiente
+          </Button>
+        ) : (
           <Button
             variant="contained"
-            onClick={handleSubmit(onSubmit)}
+            onClick={handleFinalSubmit}
             disabled={enviando}
             startIcon={enviando ? <CircularProgress size={18} color="inherit" /> : null}
           >
             {enviando ? 'Enviando...' : 'Enviar requerimiento'}
-          </Button>
-        ) : (
-          <Button variant="contained" onClick={handleNext}>
-            Siguiente
           </Button>
         )}
       </Box>
@@ -599,15 +589,16 @@ export default function FormularioSituacional({ onSuccess }: Props) {
         onClose={() => setSnackbar({ open: false })}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        {snackbar.folio ? (
-          <Alert severity="success" variant="filled">
-            ¡Requerimiento enviado! Folio: <strong>{snackbar.folio}</strong>
-          </Alert>
-        ) : (
-          <Alert severity="error" variant="filled">
-            {snackbar.error}
-          </Alert>
-        )}
+        <Alert
+          severity={snackbar.folio ? 'success' : 'error'}
+          variant="filled"
+          onClose={() => setSnackbar({ open: false })}
+        >
+          {snackbar.folio
+            ? <>¡Requerimiento enviado! Folio: <strong>{snackbar.folio}</strong></>
+            : snackbar.error
+          }
+        </Alert>
       </Snackbar>
     </Paper>
   );

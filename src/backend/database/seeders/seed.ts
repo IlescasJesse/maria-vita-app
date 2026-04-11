@@ -8,6 +8,175 @@ import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
+// ---------------------------------------------------------------------------
+// Datos estructurados de los 16 médicos Mier y Terán
+// Cada entrada es explícita — sin parseo dinámico de strings
+// ---------------------------------------------------------------------------
+const SPECIALISTS_DATA = [
+  {
+    email: 'juventino.gonzales@maria-vita.mx',
+    suffix: 'Dr.',
+    firstName: 'Juventino',
+    lastName: 'Gonzales Herrera',
+    phone: '+52 55 1100 2001',
+    dateOfBirth: new Date('1972-03-14'),
+    specialty: 'Medicina General',
+    licenseNumber: 'CEDMX-10001',
+  },
+  {
+    email: 'miguel.espinoza@maria-vita.mx',
+    suffix: 'Dr.',
+    firstName: 'Miguel Angel',
+    lastName: 'Espinoza Franklin',
+    phone: '+52 55 1100 2002',
+    dateOfBirth: new Date('1975-07-22'),
+    specialty: 'Cardiología',
+    licenseNumber: 'CEDMX-10002',
+  },
+  {
+    email: 'veronica.olvera@maria-vita.mx',
+    suffix: 'Dra.',
+    firstName: 'Verónica',
+    lastName: 'Olvera Sumano',
+    phone: '+52 55 1100 2003',
+    dateOfBirth: new Date('1980-11-05'),
+    specialty: 'Ginecología y Obstetricia',
+    licenseNumber: 'CEDMX-10003',
+  },
+  {
+    email: 'arilda.velasquez@maria-vita.mx',
+    suffix: 'Dra.',
+    firstName: 'Arilda',
+    lastName: 'Velásquez Ruiz',
+    phone: '+52 55 1100 2004',
+    dateOfBirth: new Date('1978-04-18'),
+    specialty: 'Pediatría',
+    licenseNumber: 'CEDMX-10004',
+  },
+  {
+    email: 'luis.barraza@maria-vita.mx',
+    suffix: 'Dr.',
+    firstName: 'Luis',
+    lastName: 'Barraza Mendoza',
+    phone: '+52 55 1100 2005',
+    dateOfBirth: new Date('1969-09-30'),
+    specialty: 'Ortopedia y Traumatología',
+    licenseNumber: 'CEDMX-10005',
+  },
+  {
+    email: 'josue.angeles@maria-vita.mx',
+    suffix: 'Dr.',
+    firstName: 'Josué',
+    lastName: 'Ángeles Castellanos',
+    phone: '+52 55 1100 2006',
+    dateOfBirth: new Date('1983-01-27'),
+    specialty: 'Neurología',
+    licenseNumber: 'CEDMX-10006',
+  },
+  {
+    email: 'abigail.juarez@maria-vita.mx',
+    suffix: 'Dra.',
+    firstName: 'Abigail',
+    lastName: 'Juárez Cruz',
+    phone: '+52 55 1100 2007',
+    dateOfBirth: new Date('1985-06-12'),
+    specialty: 'Dermatología',
+    licenseNumber: 'CEDMX-10007',
+  },
+  {
+    email: 'erck.vasquez@maria-vita.mx',
+    suffix: 'Dr.',
+    firstName: 'Erck Orlando',
+    lastName: 'Vásquez Cruz',
+    phone: '+52 55 1100 2008',
+    dateOfBirth: new Date('1977-02-08'),
+    specialty: 'Cirugía General',
+    licenseNumber: 'CEDMX-10008',
+  },
+  {
+    email: 'jesus.morales@maria-vita.mx',
+    suffix: 'Dr.',
+    firstName: 'Jesús Omar',
+    lastName: 'Morales Ruiz',
+    phone: '+52 55 1100 2009',
+    dateOfBirth: new Date('1974-08-19'),
+    specialty: 'Urología',
+    licenseNumber: 'CEDMX-10009',
+  },
+  {
+    email: 'selena.salazar@maria-vita.mx',
+    suffix: 'Dra.',
+    firstName: 'Selena',
+    lastName: 'Salazar Portillo',
+    phone: '+52 55 1100 2010',
+    dateOfBirth: new Date('1982-12-03'),
+    specialty: 'Endocrinología',
+    licenseNumber: 'CEDMX-10010',
+  },
+  {
+    email: 'uriel.martinez@maria-vita.mx',
+    suffix: 'Dr.',
+    firstName: 'Uriel',
+    lastName: 'Martínez Cuevas',
+    phone: '+52 55 1100 2011',
+    dateOfBirth: new Date('1971-05-25'),
+    specialty: 'Oftalmología',
+    licenseNumber: 'CEDMX-10011',
+  },
+  {
+    email: 'apolonio.vasquez@maria-vita.mx',
+    suffix: 'Dr.',
+    firstName: 'Apolonio',
+    lastName: 'Vásquez Ibarra',
+    phone: '+52 55 1100 2012',
+    dateOfBirth: new Date('1968-10-11'),
+    specialty: 'Reumatología',
+    licenseNumber: 'CEDMX-10012',
+  },
+  {
+    email: 'daniel.venegas@maria-vita.mx',
+    suffix: 'Dr.',
+    firstName: 'Daniel',
+    lastName: 'Venegas Córdoba',
+    phone: '+52 55 1100 2013',
+    dateOfBirth: new Date('1979-03-07'),
+    specialty: 'Gastroenterología',
+    licenseNumber: 'CEDMX-10013',
+  },
+  {
+    email: 'sergio.lopez@maria-vita.mx',
+    suffix: 'Dr.',
+    firstName: 'Sergio',
+    lastName: 'López Bernal',
+    phone: '+52 55 1100 2014',
+    dateOfBirth: new Date('1976-07-14'),
+    specialty: 'Neumología',
+    licenseNumber: 'CEDMX-10014',
+  },
+  {
+    email: 'abelardo.ramirez@maria-vita.mx',
+    suffix: 'Dr.',
+    firstName: 'Abelardo',
+    lastName: 'Ramírez Dávila',
+    phone: '+52 55 1100 2015',
+    dateOfBirth: new Date('1973-11-28'),
+    specialty: 'Oncología Médica',
+    licenseNumber: 'CEDMX-10015',
+  },
+  {
+    email: 'ana.reyes@maria-vita.mx',
+    suffix: 'Dra.',
+    firstName: 'Ana',
+    lastName: 'Reyes Montoya',
+    phone: '+52 55 1100 2016',
+    dateOfBirth: new Date('1984-09-16'),
+    specialty: 'Psiquiatría',
+    licenseNumber: 'CEDMX-10016',
+  },
+] as const;
+
+// ---------------------------------------------------------------------------
+
 async function main() {
   console.log('🌱 Starting database seeding...\n');
 
@@ -19,46 +188,42 @@ async function main() {
       await prisma.$connect();
       console.log('🔌 Database connection established\n');
     } catch (connectionError: any) {
-      console.error('❌ Cannot connect to MySQL. Verify that MySQL is running on localhost:3306 and DATABASE_URL is correct.');
+      console.error(
+        '❌ Cannot connect to MySQL. Verify that MySQL is running on localhost:3306 and DATABASE_URL is correct.',
+      );
       throw connectionError;
     }
 
     // ============================================
-    // LIMPIAR DATOS ESPECÍFICOS DEL SEEDER (OPCIONAL)
+    // LIMPIAR DATOS ESPECÍFICOS DEL SEEDER
     // ============================================
     console.log('🔍 Checking existing data...');
-    // Ya no se borran todos los registros (studyRequest, appointment, availability, etc.)
-    // para mantener la integridad de los datos existentes.
     console.log('✅ Skipping global clean\n');
 
     // ============================================
-    // USUARIOS
+    // USUARIOS — SUPERADMIN
     // ============================================
     console.log('👥 Synchronizing users...');
 
-    // Contraseñas para diferentes usuarios
-    const superAdminPassword = 'Ajetreo1512!';
-    const doctorPassword = 'ESPECIALISTA!';
+    const hashedSuperAdminPassword = await bcrypt.hash('Ajetreo1512!', 10);
 
-    const hashedSuperAdminPassword = await bcrypt.hash(superAdminPassword, 10);
-    const hashedDoctorPassword = await bcrypt.hash(doctorPassword, 10);
-
-    // Super Administrador - Jesse
     const superAdminUser = await prisma.user.upsert({
       where: { email: 'JESSE@ADMIN' },
       update: {
         passwordHash: hashedSuperAdminPassword,
         suffix: 'Lic.',
-        firstName: 'JESSE',
-        lastName: 'ILESCAS MARTINEZ',
+        firstName: 'Jesse',
+        lastName: 'Ilescas Martinez',
+        isActive: true,
+        isNew: false,
       },
       create: {
         email: 'JESSE@ADMIN',
         passwordHash: hashedSuperAdminPassword,
         role: 'SUPERADMIN',
         suffix: 'Lic.',
-        firstName: 'JESSE',
-        lastName: 'ILESCAS MARTINEZ',
+        firstName: 'Jesse',
+        lastName: 'Ilescas Martinez',
         dateOfBirth: new Date('1995-01-15'),
         phone: '5551234566',
         isActive: true,
@@ -70,60 +235,38 @@ async function main() {
     console.log(`   - Super Admin: ${superAdminUser.email}\n`);
 
     // ============================================
-    // ESPECIALISTAS - MÉDICOS REALES MIER Y TERÁN
+    // ESPECIALISTAS — MÉDICOS MIER Y TERÁN
     // ============================================
     console.log('👨‍⚕️ Synchronizing specialists...');
 
-    // Datos reales de médicos simplificados
-    const medicosData = [
-      'DR. JUVENTINO GONZALES',
-      'DR. MIGUEL ANGEL ESPINOZA FRANKLIN',
-      'DR. VERONICA OLVERA SUMANO',
-      'DR. ARILDA VELASQUEZ RUIZ',
-      'DR. LUIS BARRAZA',
-      'DR. JOSUE ANGELES',
-      'DR. ABIGAIL JUAREZ CRUZ',
-      'DR. ERCK ORLANDO VASQUEZ CRUZ',
-      'DR. JESUS OMAR MORALES RUIZ',
-      'DRA. SELENA SALAZAR',
-      'DR. URIEL MARTINEZ CUEVAS',
-      'DR. APOLONIO VASQUEZ',
-      'DR. DANIEL VENEGAS CORDOBA',
-      'DR. SERGIO LOPEZ BERNAL',
-      'DR. ABELARDO RAMIREZ DAVILA',
-      'DRA. ANA',
-    ];
+    const hashedDoctorPassword = await bcrypt.hash('ESPECIALISTA!', 10);
 
-    const specialistsCount = [];
-
-    for (let i = 0; i < medicosData.length; i++) {
-      const medicoName = medicosData[i]!;
-      const nameParts = medicoName.trim().split(/\s+/);
-      const hasTitle = /^DRA?\.?$/i.test(nameParts[0] || '');
-      const suffix = hasTitle ? nameParts[0]!.toUpperCase().replace(/\.$/, '') + '.' : 'Dr.';
-      const cleanNameParts = hasTitle ? nameParts.slice(1) : nameParts;
-      const firstName = cleanNameParts.slice(0, 2).join(' ') || 'ESPECIALISTA';
-      const lastName = cleanNameParts.slice(2).join(' ') || 'ESPECIALISTA';
-      const fullName = `${firstName} ${lastName}`.trim();
-
-      const email = `${fullName.toLowerCase().split(' ').join('.')}@maria-vita.mx`;
+    for (const medico of SPECIALISTS_DATA) {
+      const fullName = `${medico.firstName} ${medico.lastName}`;
 
       const specialistUser = await prisma.user.upsert({
-        where: { email: email },
+        where: { email: medico.email },
         update: {
-          suffix: suffix,
-          firstName: firstName,
-          lastName: lastName,
+          passwordHash: hashedDoctorPassword,
+          suffix: medico.suffix,
+          firstName: medico.firstName,
+          lastName: medico.lastName,
+          phone: medico.phone,
+          dateOfBirth: medico.dateOfBirth,
+          isActive: true,
+          isNew: false,
         },
         create: {
-          email: email,
+          email: medico.email,
           passwordHash: hashedDoctorPassword,
           role: 'SPECIALIST',
-          suffix: suffix,
-          firstName: firstName,
-          lastName: lastName,
+          suffix: medico.suffix,
+          firstName: medico.firstName,
+          lastName: medico.lastName,
+          phone: medico.phone,
+          dateOfBirth: medico.dateOfBirth,
           isActive: true,
-          isNew: true,
+          isNew: false,
         },
       });
 
@@ -131,20 +274,23 @@ async function main() {
         where: { userId: specialistUser.id },
         update: {
           fullName: fullName,
+          specialty: medico.specialty,
+          licenseNumber: medico.licenseNumber,
+          isAvailable: true,
         },
         create: {
           userId: specialistUser.id,
           fullName: fullName,
-          specialty: 'Especialista',
-          licenseNumber: `LIC-MV-${String(i + 1).padStart(3, '0')}`,
+          specialty: medico.specialty,
+          licenseNumber: medico.licenseNumber,
           isAvailable: true,
         },
       });
 
-      specialistsCount.push(specialistUser);
+      console.log(`   ✓ ${medico.suffix} ${fullName} — ${medico.specialty}`);
     }
 
-    console.log(`✅ ${specialistsCount.length} specialists synchronized\n`);
+    console.log(`\n✅ ${SPECIALISTS_DATA.length} specialists synchronized\n`);
 
     // ============================================
     // RESUMEN
@@ -153,8 +299,8 @@ async function main() {
     console.log('✅ Database seeding completed successfully!');
     console.log('═══════════════════════════════════════');
     console.log('\n📊 Summary:');
-    console.log(`   - Total Users Synchronized: ${1 + specialistsCount.length}`);
-    console.log(`   - Specialists: ${specialistsCount.length}`);
+    console.log(`   - Total Users Synchronized: ${1 + SPECIALISTS_DATA.length}`);
+    console.log(`   - Specialists: ${SPECIALISTS_DATA.length}`);
     console.log('\n🔑 Test credentials:');
     console.log('   ┌────────────────────────────────────────┐');
     console.log('   │ SUPER ADMINISTRADOR                    │');
@@ -162,15 +308,11 @@ async function main() {
     console.log('   │ Email: JESSE@ADMIN                     │');
     console.log('   │ Password: Ajetreo1512!                 │');
     console.log('   ├────────────────────────────────────────┤');
-    console.log('   │ ESPECIALISTAS                          │');
+    console.log('   │ ESPECIALISTAS (16 médicos)             │');
     console.log('   ├────────────────────────────────────────┤');
-    console.log('   │ 16 Médicos Mier y Terán                │');
-    console.log('   │ Todos comparten contraseña             │');
     console.log('   │ Password: ESPECIALISTA!                │');
-    console.log('   │ Deben completar perfil al iniciar      │');
+    console.log('   │ Emails: <nombre>.<apellido>@maria-vita.mx │');
     console.log('   └────────────────────────────────────────┘');
-    console.log('\n💊 16 Médicos Especialistas Mier y Terán creados');
-    console.log('   - Solo información básica: Sufijo, Nombre, Email');
     console.log('\n');
   } catch (error) {
     console.error('❌ Error during seeding:', error);
